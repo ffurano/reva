@@ -182,8 +182,12 @@ func New(opt *Options) *Client {
 }
 
 // Common code to create and initialize a NSRequest
-func (c *Client) initNSRequest(uid, gid string) (*erpc.NSRequest, error) {
+func (c *Client) initNSRequest(ctx context.Context, uid, gid string) (*erpc.NSRequest, error) {
 	// Stuff filename, uid, gid into the MDRequest type
+
+	log := appctx.GetLogger(ctx)
+	log.Debug().Str("New grpcNS req", "("+uid+","+gid+") ").Msg("")
+
 	rq := new(erpc.NSRequest)
 	rq.Role = new(erpc.RoleId)
 
@@ -203,8 +207,12 @@ func (c *Client) initNSRequest(uid, gid string) (*erpc.NSRequest, error) {
 }
 
 // Common code to create and initialize a NSRequest
-func (c *Client) initMDRequest(uid, gid string) (*erpc.MDRequest, error) {
+func (c *Client) initMDRequest(ctx context.Context, uid, gid string) (*erpc.MDRequest, error) {
 	// Stuff filename, uid, gid into the MDRequest type
+
+	log := appctx.GetLogger(ctx)
+	log.Debug().Str("New grpcMD req", "("+uid+","+gid+") ").Msg("")
+
 	mdrq := new(erpc.MDRequest)
 	mdrq.Role = new(erpc.RoleId)
 
@@ -226,7 +234,9 @@ func (c *Client) initMDRequest(uid, gid string) (*erpc.MDRequest, error) {
 
 // AddACL adds an new acl to EOS with the given aclType.
 func (c *Client) AddACL(ctx context.Context, uid, gid, rootUID, rootGID, path string, a *acl.Entry) error {
+
 	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "AddACL").Str("uid,gid", uid+","+gid).Str("rootuid,rootgid", rootUID+","+rootGID).Str("path", path).Msg("")
 
 	acls, err := c.getACLForPath(ctx, uid, gid, path)
 	if err != nil {
@@ -240,7 +250,7 @@ func (c *Client) AddACL(ctx context.Context, uid, gid, rootUID, rootGID, path st
 	sysACL := acls.Serialize()
 
 	// Init a new NSRequest
-	rq, err := c.initNSRequest(uid, gid)
+	rq, err := c.initNSRequest(ctx, uid, gid)
 	if err != nil {
 		return err
 	}
@@ -274,7 +284,9 @@ func (c *Client) AddACL(ctx context.Context, uid, gid, rootUID, rootGID, path st
 
 // RemoveACL removes the acl from EOS.
 func (c *Client) RemoveACL(ctx context.Context, uid, gid, rootUID, rootGID, path string, a *acl.Entry) error {
+
 	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "AddACL").Str("uid,gid", uid+","+gid).Str("rootuid,rootgid", rootUID+","+rootGID).Str("path", path).Msg("")
 
 	acls, err := c.getACLForPath(ctx, uid, gid, path)
 	if err != nil {
@@ -285,7 +297,7 @@ func (c *Client) RemoveACL(ctx context.Context, uid, gid, rootUID, rootGID, path
 	sysACL := acls.Serialize()
 
 	// Init a new NSRequest
-	rq, err := c.initNSRequest(uid, gid)
+	rq, err := c.initNSRequest(ctx, uid, gid)
 	if err != nil {
 		return err
 	}
@@ -324,6 +336,10 @@ func (c *Client) UpdateACL(ctx context.Context, uid, gid, rootUID, rootGID, path
 
 // GetACL for a file
 func (c *Client) GetACL(ctx context.Context, uid, gid, path, aclType, target string) (*acl.Entry, error) {
+
+	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "GetACL").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
+
 	acls, err := c.ListACLs(ctx, uid, gid, path)
 	if err != nil {
 		return nil, err
@@ -341,6 +357,9 @@ func (c *Client) GetACL(ctx context.Context, uid, gid, path, aclType, target str
 // EOS returns uids/gid for Citrine version and usernames for older versions.
 // For Citire we need to convert back the uid back to username.
 func (c *Client) ListACLs(ctx context.Context, uid, gid, path string) ([]*acl.Entry, error) {
+	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "ListACLs").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
+
 	parsedACLs, err := c.getACLForPath(ctx, uid, gid, path)
 	if err != nil {
 		return nil, err
@@ -353,9 +372,10 @@ func (c *Client) ListACLs(ctx context.Context, uid, gid, path string) ([]*acl.En
 
 func (c *Client) getACLForPath(ctx context.Context, uid, gid, path string) (*acl.ACLs, error) {
 	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "GetACLForPath").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
 
 	// Initialize the common fields of the NSReq
-	rq, err := c.initNSRequest(uid, gid)
+	rq, err := c.initNSRequest(ctx, uid, gid)
 	if err != nil {
 		return nil, err
 	}
@@ -402,9 +422,10 @@ func (c *Client) getACLForPath(ctx context.Context, uid, gid, path string) (*acl
 // GetFileInfoByInode returns the FileInfo by the given inode
 func (c *Client) GetFileInfoByInode(ctx context.Context, uid, gid string, inode uint64) (*eosclient.FileInfo, error) {
 	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "GetFileInfoByInode").Str("uid,gid", uid+","+gid).Uint64("inode", inode).Msg("")
 
 	// Initialize the common fields of the MDReq
-	mdrq, err := c.initMDRequest(uid, gid)
+	mdrq, err := c.initMDRequest(ctx, uid, gid)
 	if err != nil {
 		return nil, err
 	}
@@ -452,9 +473,10 @@ func (c *Client) GetFileInfoByInode(ctx context.Context, uid, gid string, inode 
 // SetAttr sets an extended attributes on a path.
 func (c *Client) SetAttr(ctx context.Context, uid, gid string, attr *eosclient.Attribute, recursive bool, path string) error {
 	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "SetAttr").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
 
 	// Initialize the common fields of the NSReq
-	rq, err := c.initNSRequest(uid, gid)
+	rq, err := c.initNSRequest(ctx, uid, gid)
 	if err != nil {
 		return err
 	}
@@ -490,9 +512,10 @@ func (c *Client) SetAttr(ctx context.Context, uid, gid string, attr *eosclient.A
 // UnsetAttr unsets an extended attribute on a path.
 func (c *Client) UnsetAttr(ctx context.Context, uid, gid string, attr *eosclient.Attribute, path string) error {
 	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "UnsetAttr").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
 
 	// Initialize the common fields of the NSReq
-	rq, err := c.initNSRequest(uid, gid)
+	rq, err := c.initNSRequest(ctx, uid, gid)
 	if err != nil {
 		return err
 	}
@@ -527,9 +550,10 @@ func (c *Client) UnsetAttr(ctx context.Context, uid, gid string, attr *eosclient
 // GetFileInfoByPath returns the FilInfo at the given path
 func (c *Client) GetFileInfoByPath(ctx context.Context, uid, gid, path string) (*eosclient.FileInfo, error) {
 	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "GetFileInfoByPath").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
 
 	// Initialize the common fields of the MDReq
-	mdrq, err := c.initMDRequest(uid, gid)
+	mdrq, err := c.initMDRequest(ctx, uid, gid)
 	if err != nil {
 		return nil, err
 	}
@@ -591,9 +615,10 @@ func (c *Client) GetQuota(ctx context.Context, username, rootUID, rootGID, path 
 // Touch creates a 0-size,0-replica file in the EOS namespace.
 func (c *Client) Touch(ctx context.Context, uid, gid, path string) error {
 	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "Touch").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
 
 	// Initialize the common fields of the NSReq
-	rq, err := c.initNSRequest(uid, gid)
+	rq, err := c.initNSRequest(ctx, uid, gid)
 	if err != nil {
 		return err
 	}
@@ -625,9 +650,10 @@ func (c *Client) Touch(ctx context.Context, uid, gid, path string) error {
 // Chown given path
 func (c *Client) Chown(ctx context.Context, uid, gid, chownUID, chownGID, path string) error {
 	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "Chown").Str("uid,gid", uid+","+gid).Str("chownuid,chowngid", chownUID+","+chownGID).Str("path", path).Msg("")
 
 	// Initialize the common fields of the NSReq
-	rq, err := c.initNSRequest(uid, gid)
+	rq, err := c.initNSRequest(ctx, uid, gid)
 	if err != nil {
 		return err
 	}
@@ -635,6 +661,10 @@ func (c *Client) Chown(ctx context.Context, uid, gid, chownUID, chownGID, path s
 	msg := new(erpc.NSRequest_ChownRequest)
 	msg.Owner = new(erpc.RoleId)
 	msg.Owner.Uid, err = strconv.ParseUint(chownUID, 10, 64)
+	if err != nil {
+		return err
+	}
+	msg.Owner.Gid, err = strconv.ParseUint(chownGID, 10, 64)
 	if err != nil {
 		return err
 	}
@@ -655,7 +685,7 @@ func (c *Client) Chown(ctx context.Context, uid, gid, chownUID, chownGID, path s
 		return errtypes.InternalError(fmt.Sprintf("nil response for uid: '%s' chownuid: '%s' path: '%s'", uid, chownUID, path))
 	}
 
-	log.Info().Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
+	log.Info().Str("path", path).Str("uid,gid", uid+","+gid).Str("chownuid,chowngid", chownUID+","+chownGID).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
 
 	return err
 
@@ -664,9 +694,10 @@ func (c *Client) Chown(ctx context.Context, uid, gid, chownUID, chownGID, path s
 // Chmod given path
 func (c *Client) Chmod(ctx context.Context, uid, gid, mode, path string) error {
 	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "Chmod").Str("uid,gid", uid+","+gid).Str("mode", mode).Str("path", path).Msg("")
 
 	// Initialize the common fields of the NSReq
-	rq, err := c.initNSRequest(uid, gid)
+	rq, err := c.initNSRequest(ctx, uid, gid)
 	if err != nil {
 		return err
 	}
@@ -704,9 +735,10 @@ func (c *Client) Chmod(ctx context.Context, uid, gid, mode, path string) error {
 // CreateDir creates a directory at the given path
 func (c *Client) CreateDir(ctx context.Context, uid, gid, path string) error {
 	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "Createdir").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
 
 	// Initialize the common fields of the NSReq
-	rq, err := c.initNSRequest(uid, gid)
+	rq, err := c.initNSRequest(ctx, uid, gid)
 	if err != nil {
 		return err
 	}
@@ -744,9 +776,10 @@ func (c *Client) CreateDir(ctx context.Context, uid, gid, path string) error {
 
 func (c *Client) rm(ctx context.Context, uid, gid, path string) error {
 	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "rm").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
 
 	// Initialize the common fields of the NSReq
-	rq, err := c.initNSRequest(uid, gid)
+	rq, err := c.initNSRequest(ctx, uid, gid)
 	if err != nil {
 		return err
 	}
@@ -777,9 +810,10 @@ func (c *Client) rm(ctx context.Context, uid, gid, path string) error {
 
 func (c *Client) rmdir(ctx context.Context, uid, gid, path string) error {
 	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "rmdir").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
 
 	// Initialize the common fields of the NSReq
-	rq, err := c.initNSRequest(uid, gid)
+	rq, err := c.initNSRequest(ctx, uid, gid)
 	if err != nil {
 		return err
 	}
@@ -812,6 +846,7 @@ func (c *Client) rmdir(ctx context.Context, uid, gid, path string) error {
 // Remove removes the resource at the given path
 func (c *Client) Remove(ctx context.Context, uid, gid, path string) error {
 	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "Remove").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
 
 	nfo, err := c.GetFileInfoByPath(ctx, uid, gid, path)
 	if err != nil {
@@ -834,6 +869,7 @@ func (c *Client) Rename(ctx context.Context, uid, gid, oldPath, newPath string) 
 // List the contents of the directory given by path
 func (c *Client) List(ctx context.Context, uid, gid, dpath string) ([]*eosclient.FileInfo, error) {
 	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "List").Str("uid,gid", uid+","+gid).Str("dpath", dpath).Msg("")
 
 	// Stuff filename, uid, gid into the FindRequest type
 	fdrq := new(erpc.FindRequest)
@@ -860,7 +896,7 @@ func (c *Client) List(ctx context.Context, uid, gid, dpath string) ([]*eosclient
 	// Now send the req and see what happens
 	resp, err := c.cl.Find(context.Background(), fdrq)
 	if err != nil {
-		log.Error().Err(err).Str("path", dpath).Str("err", err.Error())
+		log.Error().Err(err).Str("path", dpath).Str("err", err.Error()).Msg("grpc response")
 
 		return nil, err
 	}
@@ -870,20 +906,25 @@ func (c *Client) List(ctx context.Context, uid, gid, dpath string) ([]*eosclient
 	for {
 		rsp, err := resp.Recv()
 		if err != nil {
-			if err == io.EOF {
+			log.Debug().Err(err).Str("path", dpath).Str("got err from EOS", err.Error()).Msg("grpc response")
+			if err == io.EOF || i > 0 {
+				log.Debug().Str("path", dpath).Msg("OK, no more items")
 				return mylst, nil
 			}
-
-			log.Warn().Err(err).Str("path", dpath).Str("err", err.Error())
 
 			return nil, err
 		}
 
 		if rsp == nil {
-			log.Warn().Err(err).Str("path", dpath).Str("err", "rsp is nil")
+			log.Warn().Err(err).Str("path", dpath).Str("err", "rsp is nil").Msg("grpc response")
 			return nil, errtypes.NotFound(dpath)
 		}
 
+		i++
+		if i == 1 {
+			log.Debug().Str("path", dpath).Str("skipping item resp:", fmt.Sprintf("%#v", rsp)).Msg("grpc response")
+			continue
+		}
 		log.Debug().Str("path", dpath).Str("item resp:", fmt.Sprintf("%#v", rsp)).Msg("grpc response")
 
 		myitem, err := c.grpcMDResponseToFileInfo(rsp, dpath)
@@ -893,17 +934,16 @@ func (c *Client) List(ctx context.Context, uid, gid, dpath string) ([]*eosclient
 			return nil, err
 		}
 
-		i++
-		if i == 1 {
-			continue
-		}
 		mylst = append(mylst, myitem)
 	}
 }
 
 // Read reads a file from the mgm
 func (c *Client) Read(ctx context.Context, uid, gid, path string) (io.ReadCloser, error) {
-	rand := "eosread-" + uuid.New().String()
+	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "Read").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
+
+	rand := "eosread-" + uuid.Must(uuid.NewV4()).String()
 	localTarget := fmt.Sprintf("%s/%s", c.opt.CacheDirectory, rand)
 	defer os.RemoveAll(localTarget)
 
@@ -917,6 +957,9 @@ func (c *Client) Read(ctx context.Context, uid, gid, path string) (io.ReadCloser
 
 // Write writes a file to the mgm
 func (c *Client) Write(ctx context.Context, uid, gid, path string, stream io.ReadCloser) error {
+	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "Write").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
+
 	fd, err := ioutil.TempFile(c.opt.CacheDirectory, "eoswrite-")
 	if err != nil {
 		return err
@@ -935,6 +978,9 @@ func (c *Client) Write(ctx context.Context, uid, gid, path string, stream io.Rea
 
 // WriteFile writes an existing file to the mgm
 func (c *Client) WriteFile(ctx context.Context, uid, gid, path, source string) error {
+	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "WriteFile").Str("uid,gid", uid+","+gid).Str("path", path).Str("source", source).Msg("")
+
 	xrdPath := fmt.Sprintf("%s//%s", c.opt.URL, path)
 	cmd := exec.CommandContext(ctx, c.opt.XrdcopyBinary, "--nopbar", "--silent", "-f", source, xrdPath, fmt.Sprintf("-ODeos.ruid=%s&eos.rgid=%s", uid, gid))
 	_, _, err := c.execute(ctx, cmd)
@@ -945,9 +991,10 @@ func (c *Client) WriteFile(ctx context.Context, uid, gid, path, source string) e
 // ListDeletedEntries returns a list of the deleted entries.
 func (c *Client) ListDeletedEntries(ctx context.Context, uid, gid string) ([]*eosclient.DeletedEntry, error) {
 	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "ListDeletedEntries").Str("uid,gid", uid+","+gid).Msg("")
 
 	// Initialize the common fields of the NSReq
-	rq, err := c.initNSRequest(uid, gid)
+	rq, err := c.initNSRequest(ctx, uid, gid)
 	if err != nil {
 		return nil, err
 	}
@@ -999,9 +1046,10 @@ func (c *Client) ListDeletedEntries(ctx context.Context, uid, gid string) ([]*eo
 // RestoreDeletedEntry restores a deleted entry.
 func (c *Client) RestoreDeletedEntry(ctx context.Context, uid, gid, key string) error {
 	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "ListDeletedEntries").Str("uid,gid", uid+","+gid).Str("key", key).Msg("")
 
 	// Initialize the common fields of the NSReq
-	rq, err := c.initNSRequest(uid, gid)
+	rq, err := c.initNSRequest(ctx, uid, gid)
 	if err != nil {
 		return err
 	}
@@ -1032,9 +1080,10 @@ func (c *Client) RestoreDeletedEntry(ctx context.Context, uid, gid, key string) 
 // PurgeDeletedEntries purges all entries from the recycle bin.
 func (c *Client) PurgeDeletedEntries(ctx context.Context, uid, gid string) error {
 	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "PurgeDeletedEntries").Str("uid,gid", uid+","+gid).Msg("")
 
 	// Initialize the common fields of the NSReq
-	rq, err := c.initNSRequest(uid, gid)
+	rq, err := c.initNSRequest(ctx, uid, gid)
 	if err != nil {
 		return err
 	}
@@ -1062,6 +1111,9 @@ func (c *Client) PurgeDeletedEntries(ctx context.Context, uid, gid string) error
 
 // ListVersions list all the versions for a given file.
 func (c *Client) ListVersions(ctx context.Context, uid, gid, p string) ([]*eosclient.FileInfo, error) {
+	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "ListVersions").Str("uid,gid", uid+","+gid).Str("p", p).Msg("")
+
 	versionFolder := getVersionFolder(p)
 	finfos, err := c.List(ctx, uid, gid, versionFolder)
 	if err != nil {
@@ -1084,11 +1136,17 @@ func (c *Client) RollbackToVersion(ctx context.Context, uid, gid, path, version 
 
 // ReadVersion reads the version for the given file.
 func (c *Client) ReadVersion(ctx context.Context, uid, gid, p, version string) (io.ReadCloser, error) {
+	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "ReadVersion").Str("uid,gid", uid+","+gid).Str("p", p).Str("version", version).Msg("")
+
 	versionFile := path.Join(getVersionFolder(p), version)
 	return c.Read(ctx, uid, gid, versionFile)
 }
 
 func (c *Client) getVersionFolderInode(ctx context.Context, uid, gid, p string) (uint64, error) {
+	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "getVersionFolderInode").Str("uid,gid", uid+","+gid).Str("p", p).Msg("")
+
 	versionFolder := getVersionFolder(p)
 	md, err := c.GetFileInfoByPath(ctx, uid, gid, versionFolder)
 	if err != nil {
@@ -1104,6 +1162,9 @@ func (c *Client) getVersionFolderInode(ctx context.Context, uid, gid, p string) 
 }
 
 func (c *Client) getFileInfoFromVersion(ctx context.Context, uid, gid, p string) (*eosclient.FileInfo, error) {
+	log := appctx.GetLogger(ctx)
+	log.Info().Str("func", "getFileInfoFromVersion").Str("uid,gid", uid+","+gid).Str("p", p).Msg("")
+
 	file := getFileFromVersionFolder(p)
 	md, err := c.GetFileInfoByPath(ctx, uid, gid, file)
 	if err != nil {
