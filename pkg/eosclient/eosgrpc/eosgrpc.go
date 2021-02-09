@@ -149,7 +149,8 @@ func newgrpc(ctx context.Context, opt *Options) (erpc.EosClient, error) {
 
 	conn, err := grpc.Dial(opt.GrpcURI, grpc.WithInsecure())
 	if err != nil {
-		log.Warn().Str("Error connecting to ", "'"+opt.GrpcURI+"' ").Str("err", err.Error()).Msg("")
+		log.Debug().Str("Error connecting to ", "'"+opt.GrpcURI+"' ").Str("err", err.Error()).Msg("")
+		return nil, err
 	}
 
 	log.Debug().Str("Going to ping ", "'"+opt.GrpcURI+"' ").Msg("")
@@ -161,7 +162,8 @@ func newgrpc(ctx context.Context, opt *Options) (erpc.EosClient, error) {
 	prq.Message = []byte("hi this is a ping from reva")
 	prep, err := ecl.Ping(ctx, prq)
 	if err != nil {
-		log.Warn().Str("Could not ping to ", "'"+opt.GrpcURI+"' ").Str("err", err.Error()).Msg("")
+		log.Error().Str("Ping to ", "'"+opt.GrpcURI+"' ").Str("err", err.Error()).Msg("")
+		return nil, err
 	}
 
 	if prep == nil {
@@ -301,6 +303,7 @@ func (c *Client) AddACL(ctx context.Context, auth, rootAuth eosclient.Authorizat
 		return e
 	}
 
+	log.Debug().Str("func", "AddACL").Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("")
 	if resp == nil {
 		return errtypes.NotFound(fmt.Sprintf("Path: %s", path))
 	}
@@ -350,6 +353,7 @@ func (c *Client) RemoveACL(ctx context.Context, auth, rootAuth eosclient.Authori
 		return e
 	}
 
+	log.Debug().Str("func", "RemoveACL").Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("")
 	if resp == nil {
 		return errtypes.NotFound(fmt.Sprintf("Path: %s", path))
 	}
@@ -433,7 +437,7 @@ func (c *Client) getACLForPath(ctx context.Context, auth eosclient.Authorization
 		return nil, errtypes.InternalError(fmt.Sprintf("nil response for uid: '%s' path: '%s'", auth.Role.UID, path))
 	}
 
-	log.Debug().Str("func", "GetACLForPath").Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
+	log.Debug().Str("func", "GetACLForPath").Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("")
 
 	if resp.Acl == nil {
 		return nil, errtypes.InternalError(fmt.Sprintf("nil acl for uid: '%s' path: '%s'", auth.Role.UID, path))
@@ -1232,8 +1236,7 @@ func (c *Client) Write(ctx context.Context, auth eosclient.Authorization, path s
 }
 
 // WriteFile writes an existing file to the mgm. Old xrdcp utility
-func (c *Client) WriteFile(ctx context.Context, auth eosclient.Authorization, path, source string) error {
-
+func (c *Client) WriteFile(ctx context.Context, uid, gid, path, source string) error {
 	log := appctx.GetLogger(ctx)
 	log.Info().Str("func", "WriteFile").Str("uid,gid", auth.Role.UID+","+auth.Role.GID).Str("path", path).Str("source", source).Msg("")
 
