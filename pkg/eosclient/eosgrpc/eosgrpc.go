@@ -133,7 +133,7 @@ func newgrpc(ctx context.Context, opt *Options) (erpc.EosClient, error) {
 
 	conn, err := grpc.Dial(opt.GrpcURI, grpc.WithInsecure())
 	if err != nil {
-		log.Debug().Str("Error connecting to ", "'"+opt.GrpcURI+"' ").Str("err:", err.Error()).Msg("")
+		log.Debug().Str("Error connecting to ", "'"+opt.GrpcURI+"' ").Str("err", err.Error()).Msg("")
 		return nil, err
 	}
 
@@ -145,7 +145,7 @@ func newgrpc(ctx context.Context, opt *Options) (erpc.EosClient, error) {
 	prq.Message = []byte("hi this is a ping from reva")
 	prep, err := ecl.Ping(ctx, prq)
 	if err != nil {
-		log.Error().Str("Ping to ", "'"+opt.GrpcURI+"' ").Str("err:", err.Error()).Msg("")
+		log.Error().Str("Ping to ", "'"+opt.GrpcURI+"' ").Str("err", err.Error()).Msg("")
 		return nil, err
 	}
 
@@ -285,7 +285,7 @@ func (c *Client) AddACL(ctx context.Context, uid, gid, rootUID, rootGID, path st
 	resp, err := c.cl.Exec(context.Background(), rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -333,7 +333,7 @@ func (c *Client) RemoveACL(ctx context.Context, uid, gid, rootUID, rootGID, path
 	resp, err := c.cl.Exec(context.Background(), rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -411,7 +411,7 @@ func (c *Client) getACLForPath(ctx context.Context, uid, gid, path string) (*acl
 	resp, err := c.cl.Exec(context.Background(), rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err", e.Error()).Msg("")
 		return nil, e
 	}
 
@@ -513,7 +513,7 @@ func (c *Client) SetAttr(ctx context.Context, uid, gid string, attr *eosclient.A
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -552,7 +552,7 @@ func (c *Client) UnsetAttr(ctx context.Context, uid, gid string, attr *eosclient
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -653,7 +653,7 @@ func (c *Client) Touch(ctx context.Context, uid, gid, path string) error {
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -698,7 +698,7 @@ func (c *Client) Chown(ctx context.Context, uid, gid, chownUID, chownGID, path s
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -741,7 +741,7 @@ func (c *Client) Chmod(ctx context.Context, uid, gid, mode, path string) error {
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("path ", path).Str("err:", e.Error()).Msg("")
+		log.Error().Str("path ", path).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -784,7 +784,7 @@ func (c *Client) CreateDir(ctx context.Context, uid, gid, path string) error {
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -820,7 +820,7 @@ func (c *Client) rm(ctx context.Context, uid, gid, path string) error {
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -857,7 +857,7 @@ func (c *Client) rmdir(ctx context.Context, uid, gid, path string) error {
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -956,7 +956,7 @@ func (c *Client) List(ctx context.Context, uid, gid, dpath string) ([]*eosclient
 
 		myitem, err := c.grpcMDResponseToFileInfo(rsp, dpath)
 		if err != nil {
-			log.Warn().Err(err).Str("path", dpath).Str("could not convert item:", fmt.Sprintf("%#v", rsp)).Str("err:", err.Error()).Msg("")
+			log.Warn().Err(err).Str("path", dpath).Str("could not convert item:", fmt.Sprintf("%#v", rsp)).Str("err", err.Error()).Msg("")
 
 			return nil, err
 		}
@@ -1035,7 +1035,7 @@ func (c *Client) ListDeletedEntries(ctx context.Context, uid, gid string) ([]*eo
 	resp, err := c.cl.Exec(context.Background(), rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("err:", e.Error()).Msg("")
+		log.Error().Str("err", e.Error()).Msg("")
 		return nil, e
 	}
 
@@ -1093,7 +1093,7 @@ func (c *Client) RestoreDeletedEntry(ctx context.Context, uid, gid, key string) 
 	resp, err := c.cl.Exec(context.Background(), rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("key", key).Str("err:", e.Error()).Msg("")
+		log.Error().Str("key", key).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -1126,7 +1126,7 @@ func (c *Client) PurgeDeletedEntries(ctx context.Context, uid, gid string) error
 	resp, err := c.cl.Exec(context.Background(), rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("err:", e.Error()).Msg("")
+		log.Error().Str("err", e.Error()).Msg("")
 		return e
 	}
 
