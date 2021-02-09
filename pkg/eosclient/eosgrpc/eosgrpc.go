@@ -201,7 +201,7 @@ func (c *Client) initNSRequest(ctx context.Context, uid, gid string) (*erpc.NSRe
 	// Stuff filename, uid, gid into the MDRequest type
 
 	log := appctx.GetLogger(ctx)
-	log.Debug().Str("(uid,gid)", "("+uid+","+gid+") ").Msg("New grpcNS req")
+	log.Debug().Str("(uid,gid)", "("+uid+","+gid+")").Msg("New grpcNS req")
 
 	rq := new(erpc.NSRequest)
 	rq.Role = new(erpc.RoleId)
@@ -226,7 +226,7 @@ func (c *Client) initMDRequest(ctx context.Context, uid, gid string) (*erpc.MDRe
 	// Stuff filename, uid, gid into the MDRequest type
 
 	log := appctx.GetLogger(ctx)
-	log.Debug().Str("(uid,gid)", "("+uid+","+gid+") ").Msg("New grpcMD req")
+	log.Debug().Str("(uid,gid)", "("+uid+","+gid+")").Msg("New grpcMD req")
 
 	mdrq := new(erpc.MDRequest)
 	mdrq.Role = new(erpc.RoleId)
