@@ -181,6 +181,21 @@ func New(opt *Options) *Client {
 	return c
 }
 
+// If the error is not nil, take that
+// If there is an error coming from EOS, erturn a descriptive error
+func (c *Client) getRespError(rsp *erpc.NSResponse, err error) error {
+	if err != nil {
+		return err
+	}
+
+	if rsp.Error.Code == 0 {
+		return nil
+	}
+
+	err2 := errtypes.InternalError("Err from EOS: " + fmt.Sprintf("%#v", rsp.Error))
+	return err2
+}
+
 // Common code to create and initialize a NSRequest
 func (c *Client) initNSRequest(ctx context.Context, uid, gid string) (*erpc.NSRequest, error) {
 	// Stuff filename, uid, gid into the MDRequest type
@@ -268,12 +283,13 @@ func (c *Client) AddACL(ctx context.Context, uid, gid, rootUID, rootGID, path st
 
 	// Now send the req and see what happens
 	resp, err := c.cl.Exec(context.Background(), rq)
-	if err != nil {
-		log.Error().Str("Exec ", "'"+path+"' ").Str("err:", err.Error()).Msg("")
-		return err
+	e := c.getRespError(resp, err)
+	if e != nil {
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		return e
 	}
 
-	log.Debug().Str("Exec ", "'"+path+"' ").Str("resp:", fmt.Sprintf("%#v", resp)).Msg("")
+	log.Debug().Str("func", "AddACL").Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("")
 	if resp == nil {
 		return errtypes.NotFound(fmt.Sprintf("Path: %s", path))
 	}
@@ -315,12 +331,13 @@ func (c *Client) RemoveACL(ctx context.Context, uid, gid, rootUID, rootGID, path
 
 	// Now send the req and see what happens
 	resp, err := c.cl.Exec(context.Background(), rq)
-	if err != nil {
-		log.Error().Str("Exec ", "'"+path+"' ").Str("err:", err.Error()).Msg("")
-		return err
+	e := c.getRespError(resp, err)
+	if e != nil {
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		return e
 	}
 
-	log.Debug().Str("Exec ", "'"+path+"' ").Str("resp:", fmt.Sprintf("%#v", resp)).Msg("")
+	log.Debug().Str("func", "AddACL").Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("")
 	if resp == nil {
 		return errtypes.NotFound(fmt.Sprintf("Path: %s", path))
 	}
@@ -392,17 +409,17 @@ func (c *Client) getACLForPath(ctx context.Context, uid, gid, path string) (*acl
 
 	// Now send the req and see what happens
 	resp, err := c.cl.Exec(context.Background(), rq)
-
-	if err != nil {
-		log.Error().Err(err).Str("path", path).Str("err", err.Error())
-		return nil, err
+	e := c.getRespError(resp, err)
+	if e != nil {
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		return nil, e
 	}
 
 	if resp == nil {
 		return nil, errtypes.InternalError(fmt.Sprintf("nil response for uid: '%s' path: '%s'", uid, path))
 	}
 
-	log.Debug().Str("Exec ", "'"+path+"' ").Str("resp:", fmt.Sprintf("%#v", resp)).Msg("")
+	log.Debug().Str("func", "AddACL").Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("")
 
 	if resp.Acl == nil {
 		return nil, errtypes.InternalError(fmt.Sprintf("nil acl for uid: '%s' path: '%s'", uid, path))
@@ -494,9 +511,10 @@ func (c *Client) SetAttr(ctx context.Context, uid, gid string, attr *eosclient.A
 
 	// Now send the req and see what happens
 	resp, err := c.cl.Exec(ctx, rq)
-	if err != nil {
-		log.Warn().Err(err).Str("path", path).Str("err", err.Error())
-		return err
+	e := c.getRespError(resp, err)
+	if e != nil {
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		return e
 	}
 
 	if resp == nil {
@@ -532,9 +550,10 @@ func (c *Client) UnsetAttr(ctx context.Context, uid, gid string, attr *eosclient
 
 	// Now send the req and see what happens
 	resp, err := c.cl.Exec(ctx, rq)
-	if err != nil {
-		log.Error().Err(err).Str("path", path).Str("err", err.Error())
-		return err
+	e := c.getRespError(resp, err)
+	if e != nil {
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		return e
 	}
 
 	if resp == nil {
@@ -632,9 +651,10 @@ func (c *Client) Touch(ctx context.Context, uid, gid, path string) error {
 
 	// Now send the req and see what happens
 	resp, err := c.cl.Exec(ctx, rq)
-	if err != nil {
-		log.Warn().Err(err).Str("path", path).Str("err", err.Error())
-		return err
+	e := c.getRespError(resp, err)
+	if e != nil {
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		return e
 	}
 
 	if resp == nil {
@@ -676,15 +696,17 @@ func (c *Client) Chown(ctx context.Context, uid, gid, chownUID, chownGID, path s
 
 	// Now send the req and see what happens
 	resp, err := c.cl.Exec(ctx, rq)
-	if err != nil {
-		log.Error().Err(err).Str("path", path).Str("err", err.Error())
-		return err
+	e := c.getRespError(resp, err)
+	if e != nil {
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		return e
 	}
 
 	if resp == nil {
 		return errtypes.InternalError(fmt.Sprintf("nil response for uid: '%s' chownuid: '%s' path: '%s'", uid, chownUID, path))
 	}
 
+	log.Info().Str("path", path).Str("uid,gid", uid+","+gid).Str("chownuid,chowngid", chownUID+","+chownGID).Str("resperror:", fmt.Sprintf("%#v", resp.Error)).Msg("grpc error")
 	log.Info().Str("path", path).Str("uid,gid", uid+","+gid).Str("chownuid,chowngid", chownUID+","+chownGID).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
 
 	return err
@@ -717,9 +739,10 @@ func (c *Client) Chmod(ctx context.Context, uid, gid, mode, path string) error {
 
 	// Now send the req and see what happens
 	resp, err := c.cl.Exec(ctx, rq)
-	if err != nil {
-		log.Warn().Err(err).Str("mode", mode).Str("path", path).Str("err", err.Error())
-		return err
+	e := c.getRespError(resp, err)
+	if e != nil {
+		log.Error().Str("path ", path).Str("err:", e.Error()).Msg("")
+		return e
 	}
 
 	if resp == nil {
@@ -759,15 +782,17 @@ func (c *Client) CreateDir(ctx context.Context, uid, gid, path string) error {
 
 	// Now send the req and see what happens
 	resp, err := c.cl.Exec(ctx, rq)
-	if err != nil {
-		log.Warn().Err(err).Str("path", path).Str("err", err.Error())
-		return err
+	e := c.getRespError(resp, err)
+	if e != nil {
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		return e
 	}
 
 	if resp == nil {
 		return errtypes.InternalError(fmt.Sprintf("nil response for uid: '%s' path: '%s'", uid, path))
 	}
 
+	log.Info().Str("path", path).Str("resperror:", fmt.Sprintf("%#v", resp.Error)).Msg("grpc error")
 	log.Info().Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
 
 	return err
@@ -793,9 +818,10 @@ func (c *Client) rm(ctx context.Context, uid, gid, path string) error {
 
 	// Now send the req and see what happens
 	resp, err := c.cl.Exec(ctx, rq)
-	if err != nil {
-		log.Warn().Err(err).Str("path", path).Str("err", err.Error())
-		return err
+	e := c.getRespError(resp, err)
+	if e != nil {
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		return e
 	}
 
 	if resp == nil {
@@ -829,9 +855,10 @@ func (c *Client) rmdir(ctx context.Context, uid, gid, path string) error {
 
 	// Now send the req and see what happens
 	resp, err := c.cl.Exec(ctx, rq)
-	if err != nil {
-		log.Warn().Err(err).Str("path", path).Str("err", err.Error())
-		return err
+	e := c.getRespError(resp, err)
+	if e != nil {
+		log.Error().Str("func", "AddACL").Str("path", path).Str("err:", e.Error()).Msg("")
+		return e
 	}
 
 	if resp == nil {
@@ -1006,9 +1033,10 @@ func (c *Client) ListDeletedEntries(ctx context.Context, uid, gid string) ([]*eo
 
 	// Now send the req and see what happens
 	resp, err := c.cl.Exec(context.Background(), rq)
-	if err != nil {
-		log.Warn().Err(err).Str("err", err.Error())
-		return nil, err
+	e := c.getRespError(resp, err)
+	if e != nil {
+		log.Error().Str("err:", e.Error()).Msg("")
+		return nil, e
 	}
 
 	if resp == nil {
@@ -1063,9 +1091,10 @@ func (c *Client) RestoreDeletedEntry(ctx context.Context, uid, gid, key string) 
 
 	// Now send the req and see what happens
 	resp, err := c.cl.Exec(context.Background(), rq)
-	if err != nil {
-		log.Warn().Err(err).Str("key", key).Str("err", err.Error())
-		return err
+	e := c.getRespError(resp, err)
+	if e != nil {
+		log.Error().Str("key", key).Str("err:", e.Error()).Msg("")
+		return e
 	}
 
 	if resp == nil {
@@ -1095,9 +1124,10 @@ func (c *Client) PurgeDeletedEntries(ctx context.Context, uid, gid string) error
 
 	// Now send the req and see what happens
 	resp, err := c.cl.Exec(context.Background(), rq)
-	if err != nil {
-		log.Warn().Err(err).Str("err", err.Error())
-		return err
+	e := c.getRespError(resp, err)
+	if e != nil {
+		log.Error().Str("err:", e.Error()).Msg("")
+		return e
 	}
 
 	if resp == nil {
