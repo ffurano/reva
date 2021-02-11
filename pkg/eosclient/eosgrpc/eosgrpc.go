@@ -352,10 +352,10 @@ func (c *Client) UpdateACL(ctx context.Context, uid, gid, rootUID, rootGID, path
 }
 
 // GetACL for a file
-func (c *Client) UpdateACL(ctx context.Context, uid, gid, path, aclType, target string) (*acl.Entry, error) {
+func (c *Client) GetACL(ctx context.Context, uid, gid, path, aclType, target string) (*acl.Entry, error) {
 
 	log := appctx.GetLogger(ctx)
-	log.Info().Str("func", "GetACL").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
+	log.Info().Str("func", "UpdateACL").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
 
 	acls, err := c.ListACLs(ctx, uid, gid, path)
 	if err != nil {
@@ -975,7 +975,7 @@ func (c *Client) Read(ctx context.Context, uid, gid, path string) (io.ReadCloser
 	log := appctx.GetLogger(ctx)
 	log.Info().Str("func", "Read").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
 
-	rand := "eosread-" + uuid.Must(uuid.NewV4()).String()
+	rand := "eosread-" + uuid.New().String()
 	localTarget := fmt.Sprintf("%s/%s", c.opt.CacheDirectory, rand)
 	defer os.RemoveAll(localTarget)
 
