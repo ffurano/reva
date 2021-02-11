@@ -426,7 +426,7 @@ func (c *Client) getACLForPath(ctx context.Context, uid, gid, path string) (*acl
 	}
 
 	if resp.GetError() != nil {
-		log.Info().Str("uid", uid).Str("path", path).Int64("errcode", resp.GetError().Code).Str("errmsg", resp.GetError().Msg).Msg("grpc response")
+		log.Info().Str("func", "GetACLForPath").Str("uid", uid).Str("path", path).Int64("errcode", resp.GetError().Code).Str("errmsg", resp.GetError().Msg).Msg("grpc response")
 	}
 
 	aclret, err := acl.Parse(resp.Acl.Rule, acl.ShortTextForm)
@@ -484,6 +484,7 @@ func (c *Client) GetFileInfoByInode(ctx context.Context, uid, gid string, inode 
 		info.Inode = inode
 	}
 
+	log.Info().Str("func", "GetFileInfoByInode").Uint64("inode", inode).Msg("grpc response")
 	return info, nil
 }
 
@@ -513,7 +514,7 @@ func (c *Client) SetAttr(ctx context.Context, uid, gid string, attr *eosclient.A
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("func", "AddACL").Str("path", path).Str("err", e.Error()).Msg("")
+		log.Error().Str("func", "SetAttr").Str("path", path).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -521,7 +522,7 @@ func (c *Client) SetAttr(ctx context.Context, uid, gid string, attr *eosclient.A
 		return errtypes.InternalError(fmt.Sprintf("nil response for uid: '%s' gid: '%s' path: '%s'", uid, gid, path))
 	}
 
-	log.Info().Str("path", path).Int64("errcode", resp.GetError().Code).Str("errmsg", resp.GetError().Msg).Msg("grpc response")
+	log.Info().Str("func", "setAttr").Str("path", path).Int64("errcode", resp.GetError().Code).Str("errmsg", resp.GetError().Msg).Msg("grpc response")
 
 	return err
 
@@ -552,7 +553,7 @@ func (c *Client) UnsetAttr(ctx context.Context, uid, gid string, attr *eosclient
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("func", "AddACL").Str("path", path).Str("err", e.Error()).Msg("")
+		log.Error().Str("func", "UnsetAttr").Str("path", path).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -560,7 +561,7 @@ func (c *Client) UnsetAttr(ctx context.Context, uid, gid string, attr *eosclient
 		return errtypes.InternalError(fmt.Sprintf("nil response for uid: '%s' gid: '%s' path: '%s'", uid, gid, path))
 	}
 
-	log.Info().Str("path", path).Int64("errcode", resp.GetError().Code).Str("errmsg", resp.GetError().Msg).Msg("grpc response")
+	log.Info().Str("func", "UnsetAttr").Str("path", path).Int64("errcode", resp.GetError().Code).Str("errmsg", resp.GetError().Msg).Msg("grpc response")
 
 	return err
 
@@ -584,13 +585,13 @@ func (c *Client) GetFileInfoByPath(ctx context.Context, uid, gid, path string) (
 	// Now send the req and see what happens
 	resp, err := c.cl.MD(ctx, mdrq)
 	if err != nil {
-		log.Error().Err(err).Str("path", path).Str("err", err.Error())
+		log.Error().Str("func", "GetFileInfoByPath").Err(err).Str("path", path).Str("err", err.Error())
 
 		return nil, err
 	}
 	rsp, err := resp.Recv()
 	if err != nil {
-		log.Error().Err(err).Str("path", path).Str("err", err.Error())
+		log.Error().Str("func", "GetFileInfoByPath").Err(err).Str("path", path).Str("err", err.Error())
 
 		// FIXME: this is very very bad and poisonous for the project!!!!!!!
 		// Apparently here we have to assume that an error in Recv() means "file not found"
@@ -604,7 +605,7 @@ func (c *Client) GetFileInfoByPath(ctx context.Context, uid, gid, path string) (
 		return nil, errtypes.NotFound(fmt.Sprintf("%s:%s", "acltype", path))
 	}
 
-	log.Info().Str("path", path).Str("rsp:", fmt.Sprintf("%#v", rsp)).Msg("grpc response")
+	log.Info().Str("func", "GetFileInfoByPath").Str("path", path).Str("rsp:", fmt.Sprintf("%#v", rsp)).Msg("grpc response")
 
 	info, err := c.grpcMDResponseToFileInfo(rsp, filepath.Dir(path))
 	if err != nil {
@@ -653,7 +654,7 @@ func (c *Client) Touch(ctx context.Context, uid, gid, path string) error {
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("func", "AddACL").Str("path", path).Str("err", e.Error()).Msg("")
+		log.Error().Str("func", "Touch").Str("path", path).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -661,7 +662,7 @@ func (c *Client) Touch(ctx context.Context, uid, gid, path string) error {
 		return errtypes.InternalError(fmt.Sprintf("nil response for uid: '%s' path: '%s'", uid, path))
 	}
 
-	log.Info().Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
+	log.Info().Str("func", "GetFileInfoByPath").Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
 
 	return err
 
@@ -698,7 +699,7 @@ func (c *Client) Chown(ctx context.Context, uid, gid, chownUID, chownGID, path s
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("func", "AddACL").Str("path", path).Str("err", e.Error()).Msg("")
+		log.Error().Str("func", "Chown").Str("path", path).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -706,8 +707,7 @@ func (c *Client) Chown(ctx context.Context, uid, gid, chownUID, chownGID, path s
 		return errtypes.InternalError(fmt.Sprintf("nil response for uid: '%s' chownuid: '%s' path: '%s'", uid, chownUID, path))
 	}
 
-	log.Info().Str("path", path).Str("uid,gid", uid+","+gid).Str("chownuid,chowngid", chownUID+","+chownGID).Str("resperror:", fmt.Sprintf("%#v", resp.Error)).Msg("grpc error")
-	log.Info().Str("path", path).Str("uid,gid", uid+","+gid).Str("chownuid,chowngid", chownUID+","+chownGID).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
+	log.Info().Str("func", "Chown").Str("path", path).Str("uid,gid", uid+","+gid).Str("chownuid,chowngid", chownUID+","+chownGID).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
 
 	return err
 
@@ -741,7 +741,7 @@ func (c *Client) Chmod(ctx context.Context, uid, gid, mode, path string) error {
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("path ", path).Str("err", e.Error()).Msg("")
+		log.Error().Str("func", "Chmod").Str("path ", path).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -749,7 +749,7 @@ func (c *Client) Chmod(ctx context.Context, uid, gid, mode, path string) error {
 		return errtypes.InternalError(fmt.Sprintf("nil response for uid: '%s' mode: '%s' path: '%s'", uid, mode, path))
 	}
 
-	log.Info().Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
+	log.Info().Str("func", "Chmod").Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
 
 	return err
 
@@ -784,7 +784,7 @@ func (c *Client) CreateDir(ctx context.Context, uid, gid, path string) error {
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("func", "AddACL").Str("path", path).Str("err", e.Error()).Msg("")
+		log.Error().Str("func", "Createdir").Str("path", path).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -792,8 +792,7 @@ func (c *Client) CreateDir(ctx context.Context, uid, gid, path string) error {
 		return errtypes.InternalError(fmt.Sprintf("nil response for uid: '%s' path: '%s'", uid, path))
 	}
 
-	log.Info().Str("path", path).Str("resperror:", fmt.Sprintf("%#v", resp.Error)).Msg("grpc error")
-	log.Info().Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
+	log.Info().Str("func", "Createdir").Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
 
 	return err
 
@@ -820,7 +819,7 @@ func (c *Client) rm(ctx context.Context, uid, gid, path string) error {
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("func", "AddACL").Str("path", path).Str("err", e.Error()).Msg("")
+		log.Error().Str("func", "rm").Str("path", path).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -828,7 +827,7 @@ func (c *Client) rm(ctx context.Context, uid, gid, path string) error {
 		return errtypes.InternalError(fmt.Sprintf("nil response for uid: '%s' path: '%s'", uid, path))
 	}
 
-	log.Info().Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
+	log.Info().Str("func", "rm").Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
 
 	return err
 
@@ -857,7 +856,7 @@ func (c *Client) rmdir(ctx context.Context, uid, gid, path string) error {
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("func", "AddACL").Str("path", path).Str("err", e.Error()).Msg("")
+		log.Error().Str("func", "rmdir").Str("path", path).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -865,7 +864,7 @@ func (c *Client) rmdir(ctx context.Context, uid, gid, path string) error {
 		return errtypes.InternalError(fmt.Sprintf("nil response for uid: '%s' path: '%s'", uid, path))
 	}
 
-	log.Info().Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
+	log.Info().Str("func", "rmdir").Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
 
 	return err
 }
@@ -877,7 +876,7 @@ func (c *Client) Remove(ctx context.Context, uid, gid, path string) error {
 
 	nfo, err := c.GetFileInfoByPath(ctx, uid, gid, path)
 	if err != nil {
-		log.Warn().Err(err).Str("path", path).Str("err", err.Error())
+		log.Warn().Err(err).Str("func", "Remove").Str("path", path).Str("err", err.Error())
 		return err
 	}
 
@@ -923,7 +922,7 @@ func (c *Client) List(ctx context.Context, uid, gid, dpath string) ([]*eosclient
 	// Now send the req and see what happens
 	resp, err := c.cl.Find(context.Background(), fdrq)
 	if err != nil {
-		log.Error().Err(err).Str("path", dpath).Str("err", err.Error()).Msg("grpc response")
+		log.Error().Err(err).Str("func", "List").Str("path", dpath).Str("err", err.Error()).Msg("grpc response")
 
 		return nil, err
 	}
@@ -933,9 +932,9 @@ func (c *Client) List(ctx context.Context, uid, gid, dpath string) ([]*eosclient
 	for {
 		rsp, err := resp.Recv()
 		if err != nil {
-			log.Debug().Err(err).Str("path", dpath).Str("got err from EOS", err.Error()).Msg("grpc response")
+			log.Debug().Err(err).Str("func", "List").Str("path", dpath).Str("got err from EOS", err.Error()).Msg("grpc response")
 			if err == io.EOF || i > 0 {
-				log.Debug().Str("path", dpath).Msg("OK, no more items")
+				log.Debug().Str("path", dpath).Int("nitems", i-1).Msg("OK, no more items")
 				return mylst, nil
 			}
 
@@ -943,26 +942,27 @@ func (c *Client) List(ctx context.Context, uid, gid, dpath string) ([]*eosclient
 		}
 
 		if rsp == nil {
-			log.Warn().Err(err).Str("path", dpath).Str("err", "rsp is nil").Msg("grpc response")
+			log.Warn().Err(err).Str("func", "List").Str("path", dpath).Str("err", "rsp is nil").Msg("grpc response")
 			return nil, errtypes.NotFound(dpath)
 		}
 
 		i++
 		if i == 1 {
-			log.Debug().Str("path", dpath).Str("skipping item resp:", fmt.Sprintf("%#v", rsp)).Msg("grpc response")
+			log.Debug().Str("func", "List").Str("path", dpath).Str("skipping item resp:", fmt.Sprintf("%#v", rsp)).Msg("grpc response")
 			continue
 		}
-		log.Debug().Str("path", dpath).Str("item resp:", fmt.Sprintf("%#v", rsp)).Msg("grpc response")
+		log.Debug().Str("func", "List").Str("path", dpath).Str("item resp:", fmt.Sprintf("%#v", rsp)).Msg("grpc response")
 
 		myitem, err := c.grpcMDResponseToFileInfo(rsp, dpath)
 		if err != nil {
-			log.Warn().Err(err).Str("path", dpath).Str("could not convert item:", fmt.Sprintf("%#v", rsp)).Str("err", err.Error()).Msg("")
+			log.Warn().Err(err).Str("func", "List").Str("path", dpath).Str("could not convert item:", fmt.Sprintf("%#v", rsp)).Str("err", err.Error()).Msg("")
 
 			return nil, err
 		}
 
 		mylst = append(mylst, myitem)
 	}
+
 }
 
 // Read reads a file from the mgm
@@ -1043,7 +1043,7 @@ func (c *Client) ListDeletedEntries(ctx context.Context, uid, gid string) ([]*eo
 		return nil, errtypes.InternalError(fmt.Sprintf("nil response for uid: '%s'", uid))
 	}
 
-	log.Info().Int64("errcode", resp.GetError().Code).Str("errmsg", resp.GetError().Msg).Msg("grpc response")
+	log.Info().Str("func", "ListDeletedEntries").Int64("errcode", resp.GetError().Code).Str("errmsg", resp.GetError().Msg).Msg("grpc response")
 
 	// TODO(labkode): add protection if slave is configured and alive to count how many files are in the trashbin before
 	// triggering the recycle ls call that could break the instance because of unavailable memory.
@@ -1074,7 +1074,7 @@ func (c *Client) ListDeletedEntries(ctx context.Context, uid, gid string) ([]*eo
 // RestoreDeletedEntry restores a deleted entry.
 func (c *Client) RestoreDeletedEntry(ctx context.Context, uid, gid, key string) error {
 	log := appctx.GetLogger(ctx)
-	log.Info().Str("func", "ListDeletedEntries").Str("uid,gid", uid+","+gid).Str("key", key).Msg("")
+	log.Info().Str("func", "RestoreDeletedEntries").Str("uid,gid", uid+","+gid).Str("key", key).Msg("")
 
 	// Initialize the common fields of the NSReq
 	rq, err := c.initNSRequest(ctx, uid, gid)
@@ -1093,7 +1093,7 @@ func (c *Client) RestoreDeletedEntry(ctx context.Context, uid, gid, key string) 
 	resp, err := c.cl.Exec(context.Background(), rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("key", key).Str("err", e.Error()).Msg("")
+		log.Error().Str("func", "RestoreDeletedEntries").Str("key", key).Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -1101,7 +1101,7 @@ func (c *Client) RestoreDeletedEntry(ctx context.Context, uid, gid, key string) 
 		return errtypes.InternalError(fmt.Sprintf("nil response for uid: '%s' key: '%s'", uid, key))
 	}
 
-	log.Info().Str("key", key).Int64("errcode", resp.GetError().Code).Str("errmsg", resp.GetError().Msg).Msg("grpc response")
+	log.Info().Str("func", "RestoreDeletedEntries").Str("key", key).Int64("errcode", resp.GetError().Code).Str("errmsg", resp.GetError().Msg).Msg("grpc response")
 
 	return err
 }
@@ -1126,7 +1126,7 @@ func (c *Client) PurgeDeletedEntries(ctx context.Context, uid, gid string) error
 	resp, err := c.cl.Exec(context.Background(), rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Error().Str("err", e.Error()).Msg("")
+		log.Error().Str("func", "PurgeDeletedEntries").Str("err", e.Error()).Msg("")
 		return e
 	}
 
@@ -1134,7 +1134,7 @@ func (c *Client) PurgeDeletedEntries(ctx context.Context, uid, gid string) error
 		return errtypes.InternalError(fmt.Sprintf("nil response for uid: '%s' ", uid))
 	}
 
-	log.Info().Int64("errcode", resp.GetError().Code).Str("errmsg", resp.GetError().Msg).Msg("grpc response")
+	log.Info().Str("func", "PurgeDeletedEntries").Int64("errcode", resp.GetError().Code).Str("errmsg", resp.GetError().Msg).Msg("grpc response")
 
 	return err
 }
