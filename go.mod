@@ -3,7 +3,7 @@ module github.com/cs3org/reva
 require (
 	bou.ke/monkey v1.0.2
 	contrib.go.opencensus.io/exporter/jaeger v0.2.1
-	contrib.go.opencensus.io/exporter/prometheus v0.3.0
+	contrib.go.opencensus.io/exporter/prometheus v0.2.0
 	github.com/BurntSushi/toml v0.3.1
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
@@ -31,7 +31,6 @@ require (
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/jedib0t/go-pretty v4.3.0+incompatible
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
-	github.com/minio/minio-go/v7 v7.0.12
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/onsi/ginkgo v1.16.4
@@ -47,7 +46,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/studio-b12/gowebdav v0.0.0-20200303150724-9380631c29a1
 	github.com/tus/tusd v1.1.1-0.20200416115059-9deabf9d80c2
-	go.opencensus.io v0.23.0
+	go.opencensus.io v0.22.6
 	golang.org/x/crypto v0.0.0-20201203163018-be400aefbc4c
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sys v0.0.0-20210423082822-04245dca01da
@@ -57,10 +56,10 @@ require (
 	gotest.tools v2.2.0+incompatible
 )
 
-go 1.16
+go 1.13
 
-replace (
-	github.com/eventials/go-tus => github.com/andrewmostello/go-tus v0.0.0-20200314041820-904a9904af9a
-	github.com/oleiade/reflections => github.com/oleiade/reflections v1.0.1
-	google.golang.org/grpc => google.golang.org/grpc v1.26.0 // temporary downgrade
-)
+replace github.com/eventials/go-tus => github.com/andrewmostello/go-tus v0.0.0-20200314041820-904a9904af9a
+
+replace github.com/oleiade/reflections => github.com/oleiade/reflections v1.0.1
+
+replace google.golang.org/grpc => google.golang.org/grpc v1.26.0 // temporary downgrade
