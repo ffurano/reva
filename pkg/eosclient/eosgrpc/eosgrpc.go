@@ -1165,10 +1165,9 @@ func (c *Client) Read(ctx context.Context, uid, gid, path string) (io.ReadCloser
 	log := appctx.GetLogger(ctx)
 	log.Info().Str("func", "Read").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
 
-	var localTarget string
-	var err error
-	var localfile io.WriteCloser
-	localfile = nil
+	rand := "eosread-" + uuid.New().String()
+	localTarget := fmt.Sprintf("%s/%s", c.opt.CacheDirectory, rand)
+	defer os.RemoveAll(localTarget)
 
 	if c.opt.ReadUsesLocalTemp {
 		rand := "eosread-" + uuid.New().String()
