@@ -128,6 +128,10 @@ type Client struct {
 	cl     erpc.EosClient
 }
 
+func (c *Client) GetHttpCl() *ehttp.EosHttpClient {
+	return ehttp.New(&c.opt.httpopts)
+}
+
 // Create and connect a grpc eos Client
 func newgrpc(ctx context.Context, opt *Options) (erpc.EosClient, error) {
 	log := appctx.GetLogger(ctx)
