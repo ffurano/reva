@@ -371,7 +371,7 @@ func (c *Client) UpdateACL(ctx context.Context, uid, gid, rootUID, rootGID, path
 func (c *Client) GetACL(ctx context.Context, uid, gid, path, aclType, target string) (*acl.Entry, error) {
 
 	log := appctx.GetLogger(ctx)
-	log.Info().Str("func", "UpdateACL").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
+	log.Info().Str("func", "GetACL").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
 
 	acls, err := c.ListACLs(ctx, uid, gid, path)
 	if err != nil {
