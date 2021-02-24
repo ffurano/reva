@@ -129,6 +129,7 @@ func (c *Client) GetHTTPCl() *ehttp.Client {
 	return ehttp.New(&c.htopts, c.httptransport)
 }
 
+// Create an http client for immediate usage, using the already instantiated resources
 func (c *Client) GetHttpCl() *ehttp.EosHttpClient {
 	return ehttp.New(&c.opt.httpopts)
 }
@@ -1161,12 +1162,6 @@ func (c *Client) Read(ctx context.Context, uid, gid, path string) (io.ReadCloser
 		log.Error().Str("func", "Read").Str("path", path).Str("uid,gid", uid+","+gid).Str("err", err.Error()).Msg("")
 		return nil, errtypes.InternalError(fmt.Sprintf("can't open local cache file '%s'", localTarget))
 	}
-
-	//	xrdPath := fmt.Sprintf("%s//%s", c.opt.URL, path)
-	//	cmd := exec.CommandContext(ctx, c.opt.XrdcopyBinary, "--nopbar", "--silent", "-f", xrdPath, localTarget, fmt.Sprintf("-OSeos.ruid=%s&eos.rgid=%s", uid, gid))
-	//	if _, _, err := c.execute(ctx, cmd); err != nil {
-	//		return nil, err
-	//	}
 
 	err = c.GetHttpCl().GETFile(ctx, "", uid, gid, path, localfile)
 	if err != nil {
