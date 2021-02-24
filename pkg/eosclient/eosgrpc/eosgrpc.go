@@ -23,8 +23,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -68,16 +66,6 @@ type Options struct {
 	// Requires extra metadata operations if set to true
 	VersionInvariant bool
 
-	// Set to true to use the local disk as a buffer for chunk
-	// reads from EOS. Default is false, i.e. pure streaming
-	ReadUsesLocalTemp bool
-
-	// Set to true to use the local disk as a buffer for chunk
-	// writes to EOS. Default is false, i.e. pure streaming
-	// Beware: in pure streaming mode the FST must support
-	// the HTTP chunked encoding
-	WriteUsesLocalTemp bool
-
 	// Location of the xrdcopy binary.
 	// Default is /opt/eos/xrootd/bin/xrdcopy.
 	XrdcopyBinary string
@@ -104,17 +92,7 @@ type Options struct {
 	// For example: "sss, unix"
 	SecProtocol string
 
-	// HTTP connections to EOS: max number of idle conns
-	MaxIdleConns int
-
-	// HTTP connections to EOS: max number of conns per host
-	MaxConnsPerHost int
-
-	// HTTP connections to EOS: max number of idle conns per host
-	MaxIdleConnsPerHost int
-
-	// HTTP connections to EOS: idle conections TTL
-	IdleConnTimeout int
+	httpopts ehttp.Options
 }
 
 func (opt *Options) init() {
@@ -131,6 +109,9 @@ func (opt *Options) init() {
 		opt.CacheDirectory = os.TempDir()
 	}
 
+	opt.httpopts.Init()
+	opt.httpopts.BaseURL = opt.URL
+
 }
 
 // Client performs actions against a EOS management node (MGM)
@@ -146,6 +127,10 @@ type Client struct {
 func (c *Client) GetHTTPCl() *ehttp.Client {
 
 	return ehttp.New(&c.htopts, c.httptransport)
+}
+
+func (c *Client) GetHttpCl() *ehttp.EosHttpClient {
+	return ehttp.New(&c.opt.httpopts)
 }
 
 // Create and connect a grpc eos Client
@@ -1171,32 +1156,25 @@ func (c *Client) Read(ctx context.Context, uid, gid, path string) (io.ReadCloser
 	localTarget := fmt.Sprintf("%s/%s", c.opt.CacheDirectory, rand)
 	defer os.RemoveAll(localTarget)
 
-	var localTarget string
-	var err error
-	var localfile io.WriteCloser
-	localfile = nil
-
-	if c.opt.ReadUsesLocalTemp {
-		rand := "eosread-" + uuid.New().String()
-		localTarget := fmt.Sprintf("%s/%s", c.opt.CacheDirectory, rand)
-		defer os.RemoveAll(localTarget)
-
-		log.Info().Str("func", "Read").Str("uid,gid", uid+","+gid).Str("path", path).Str("tempfile", localTarget).Msg("")
-		localfile, err = os.Create(localTarget)
-		if err != nil {
-			log.Error().Str("func", "Read").Str("path", path).Str("uid,gid", uid+","+gid).Str("err", err.Error()).Msg("")
-			return nil, errtypes.InternalError(fmt.Sprintf("can't open local temp file '%s'", localTarget))
-		}
+	localfile, err := os.Create(localTarget)
+	if err != nil {
+		log.Error().Str("func", "Read").Str("path", path).Str("uid,gid", uid+","+gid).Str("err", err.Error()).Msg("")
+		return nil, errtypes.InternalError(fmt.Sprintf("can't open local cache file '%s'", localTarget))
 	}
 
-	bodystream, err := c.GetHTTPCl().GETFile(ctx, c.httptransport, "", uid, gid, path, localfile)
+	//	xrdPath := fmt.Sprintf("%s//%s", c.opt.URL, path)
+	//	cmd := exec.CommandContext(ctx, c.opt.XrdcopyBinary, "--nopbar", "--silent", "-f", xrdPath, localTarget, fmt.Sprintf("-OSeos.ruid=%s&eos.rgid=%s", uid, gid))
+	//	if _, _, err := c.execute(ctx, cmd); err != nil {
+	//		return nil, err
+	//	}
+
+	err = c.GetHttpCl().GETFile(ctx, "", uid, gid, path, localfile)
 	if err != nil {
 		log.Error().Str("func", "Read").Str("path", path).Str("uid,gid", uid+","+gid).Str("err", err.Error()).Msg("")
 		return nil, errtypes.InternalError(fmt.Sprintf("can't GET local cache file '%s'", localTarget))
 	}
 
-	return bodystream, nil
-	// return os.Open(localTarget)
+	return os.Open(localTarget)
 }
 
 // Write writes a file to the mgm
@@ -1205,46 +1183,28 @@ func (c *Client) Write(ctx context.Context, uid, gid, path string, stream io.Rea
 	log := appctx.GetLogger(ctx)
 	log.Info().Str("func", "Write").Str("uid,gid", uid+","+gid).Str("path", path).Msg("")
 
-	fd, err := ioutil.TempFile(c.opt.CacheDirectory, "eoswrite-")
-	if err != nil {
-		return err
-	}
-	defer fd.Close()
-	defer os.RemoveAll(fd.Name())
+	//fd, err := ioutil.TempFile(c.opt.CacheDirectory, "eoswrite-")
+	//if err != nil {
+	//		return err
+	//	}
+	//	defer fd.Close()
+	//	defer os.RemoveAll(fd.Name())
+	//
+	//	// copy stream to local temp file
+	//	_, err = io.Copy(fd, stream)
+	//	if err != nil {
+	//return err
+	//}
 
-	if c.opt.WriteUsesLocalTemp {
-		fd, err := ioutil.TempFile(c.opt.CacheDirectory, "eoswrite-")
-		if err != nil {
-			return err
-		}
-		defer fd.Close()
-		defer os.RemoveAll(fd.Name())
+	return c.GetHttpCl().PUTFile(ctx, "", uid, gid, path, stream)
 
-		log.Info().Str("func", "Write").Str("uid,gid", uid+","+gid).Str("path", path).Str("tempfile", fd.Name()).Msg("")
-		// copy stream to local temp file
-		length, err = io.Copy(fd, stream)
-		if err != nil {
-			return err
-		}
-
-		wfd, err := os.Open(fd.Name())
-		if err != nil {
-			return err
-		}
-		defer wfd.Close()
-		defer os.RemoveAll(fd.Name())
-
-		return c.GetHTTPCl().PUTFile(ctx, c.httptransport, "", uid, gid, path, wfd, length)
-	}
-
-	return c.GetHTTPCl().PUTFile(ctx, c.httptransport, "", uid, gid, path, stream, length)
-
-	// return c.GetHttpCl().PUTFile(ctx, remoteuser, uid, gid, urlpathng, stream)
-	// return c.WriteFile(ctx, uid, gid, path, fd.Name())
+	//return c.GetHttpCl().PUTFile(ctx, remoteuser, uid, gid, urlpathng, stream)
+	//return c.WriteFile(ctx, uid, gid, path, fd.Name())
 }
 
 // WriteFile writes an existing file to the mgm. Old xrdcp utility
 func (c *Client) WriteFile(ctx context.Context, uid, gid, path, source string) error {
+
 	log := appctx.GetLogger(ctx)
 	log.Info().Str("func", "WriteFile").Str("uid,gid", uid+","+gid).Str("path", path).Str("source", source).Msg("")
 
