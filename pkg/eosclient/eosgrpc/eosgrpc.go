@@ -127,7 +127,7 @@ type Client struct {
 	cl     erpc.EosClient
 }
 
-// GetHttpCl: Create an http client for immediate usage, using the already instantiated resources
+// GetHttpCl creates an http client for immediate usage, using the already instantiated resources
 func (c *Client) GetHttpCl() *ehttp.EosHttpClient {
 	return ehttp.New(&c.opt.httpopts)
 }
