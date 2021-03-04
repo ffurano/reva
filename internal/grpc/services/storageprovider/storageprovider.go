@@ -343,8 +343,6 @@ func (s *service) InitiateFileUpload(ctx context.Context, req *provider.Initiate
 			// seealso errtypes.StatusChecksumMismatch
 		case errtypes.PermissionDenied:
 			st = status.NewPermissionDenied(ctx, err, "permission denied")
-		case errtypes.InsufficientStorage:
-			st = status.NewInsufficientStorage(ctx, err, "insufficient storage")
 		default:
 			st = status.NewInternal(ctx, err, "error getting upload id: "+req.Ref.String())
 		}
@@ -816,7 +814,7 @@ func (s *service) ListRecycle(ctx context.Context, req *provider.ListRecycleRequ
 
 func (s *service) RestoreRecycleItem(ctx context.Context, req *provider.RestoreRecycleItemRequest) (*provider.RestoreRecycleItemResponse, error) {
 	// TODO(labkode): CRITICAL: fill recycle info with storage provider.
-	if err := s.storage.RestoreRecycleItem(ctx, req.Key, req.RestorePath); err != nil {
+	if err := s.storage.RestoreRecycleItem(ctx, req.Key); err != nil {
 		var st *rpc.Status
 		switch err.(type) {
 		case errtypes.IsNotFound:
@@ -1142,10 +1140,7 @@ func (s *service) trimMountPrefix(fn string) (string, error) {
 }
 
 func (s *service) wrap(ctx context.Context, ri *provider.ResourceInfo) error {
-	if ri.Id.StorageId == "" {
-		// For wrapper drivers, the storage ID might already be set. In that case, skip setting it
-		ri.Id.StorageId = s.mountID
-	}
+	ri.Id.StorageId = s.mountID
 	ri.Path = path.Join(s.mountPath, ri.Path)
 	return nil
 }

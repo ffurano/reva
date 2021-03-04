@@ -19,6 +19,8 @@
 package utils
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	grouppb "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
@@ -159,22 +161,36 @@ func IntToShareState(g int) collaboration.ShareState {
 
 // FormatUserID formats a CS3API user ID to a string
 func FormatUserID(u *userpb.UserId) string {
+	if u.Idp != "" {
+		return fmt.Sprintf("%s:%s", u.OpaqueId, u.Idp)
+	}
 	return u.OpaqueId
 }
 
 // ExtractUserID retrieves a CS3API user ID from a string
 func ExtractUserID(u string) *userpb.UserId {
-	return &userpb.UserId{OpaqueId: u}
+	parts := strings.SplitN(u, ":", 2)
+	if len(parts) > 1 {
+		return &userpb.UserId{OpaqueId: parts[0], Idp: parts[1]}
+	}
+	return &userpb.UserId{OpaqueId: parts[0]}
 }
 
 // FormatGroupID formats a CS3API group ID to a string
 func FormatGroupID(u *grouppb.GroupId) string {
+	if u.Idp != "" {
+		return fmt.Sprintf("%s:%s", u.OpaqueId, u.Idp)
+	}
 	return u.OpaqueId
 }
 
 // ExtractGroupID retrieves a CS3API group ID from a string
 func ExtractGroupID(u string) *grouppb.GroupId {
-	return &grouppb.GroupId{OpaqueId: u}
+	parts := strings.SplitN(u, ":", 2)
+	if len(parts) > 1 {
+		return &grouppb.GroupId{OpaqueId: parts[0], Idp: parts[1]}
+	}
+	return &grouppb.GroupId{OpaqueId: parts[0]}
 }
 
 // ConvertToCS3Share converts a DBShare to a CS3API collaboration share
