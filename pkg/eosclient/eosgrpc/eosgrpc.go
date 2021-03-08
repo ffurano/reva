@@ -672,6 +672,7 @@ func (c *Client) GetQuota(ctx context.Context, username string, rootAuth eosclie
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
+		log.Info().Str("func", "GetQuota").Str("rootuid,rootgid", rootUID+","+rootGID).Str("username", username).Str("info:", fmt.Sprintf("%#v", resp)).Str("err", e.Error()).Msg("")
 		return nil, e
 	}
 
