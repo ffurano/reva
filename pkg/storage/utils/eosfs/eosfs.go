@@ -760,7 +760,35 @@ func (fs *eosfs) getMDShareFolder(ctx context.Context, p string, mdKeys []string
 func (fs *eosfs) ListFolder(ctx context.Context, ref *provider.Reference, mdKeys []string) ([]*provider.ResourceInfo, error) {
 	log := appctx.GetLogger(ctx)
 
-	p, err := fs.resolve(ctx, ref)
+	// test... remove me
+	rootuid, rootgid, err := fs.getRootUIDAndGID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	uid, gid, err := fs.getUserUIDAndGID(ctx, u)
+	if err != nil {
+		return nil, errors.Wrap(err, "eos: no uid in ctx")
+	}
+	// set quota for user
+	quotaInfo := &eosclient.SetQuotaInfo{
+		Username:  u.Username,
+		Uid:       uid,
+		Gid:       gid,
+		MaxBytes:  fs.conf.DefaultQuotaBytes,
+		MaxFiles:  fs.conf.DefaultQuotaFiles,
+		QuotaNode: fs.conf.QuotaNode,
+	}
+
+	err = fs.c.SetQuota(ctx, rootuid, rootgid, quotaInfo)
+	if err != nil {
+		err := errors.Wrap(err, "eosfs: error setting quota")
+		return nil, err
+	}
+
+	fs.GetQuota(ctx)
+	// end test
+
+	p, err := fs.resolve(ctx, u, ref)
 	if err != nil {
 		return nil, errors.Wrap(err, "eosfs: error resolving reference")
 	}
@@ -914,7 +942,12 @@ func (fs *eosfs) GetQuota(ctx context.Context) (uint64, uint64, error) {
 		return 0, 0, errors.Wrap(err, "eosfs: error getting uid and gid for user")
 	}
 
-	rootAuth, err := fs.getRootAuth(ctx)
+	uid, _, err := fs.getUserUIDAndGID(ctx, u)
+	if err != nil {
+		return 0, 0, errors.Wrap(err, "eos: no uid in ctx")
+	}
+
+	rootUID, rootGID, err := fs.getRootUIDAndGID(ctx)
 	if err != nil {
 		return 0, 0, err
 	}
