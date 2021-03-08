@@ -197,6 +197,14 @@ func (c *Client) getRespError(rsp *erpc.NSResponse, err error) error {
 		return err
 	}
 
+	if rsp == nil {
+		return nil
+	}
+
+	if rsp.Error == nil {
+		return nil
+	}
+
 	if rsp.Error.Code == 0 {
 		return nil
 	}
@@ -654,7 +662,7 @@ func (c *Client) GetQuota(ctx context.Context, username, rootUID, rootGID, path 
 	msg := new(erpc.NSRequest_QuotaRequest)
 	msg.Path = []byte(path)
 	msg.Id = new(erpc.RoleId)
-	msg.Op = erpc.QUOTAOP_GET
+
 	// Eos filters the returned quotas by username. This means that EOS must know it, someone
 	// must have created an user with that name
 	msg.Id.Username = username
@@ -664,6 +672,7 @@ func (c *Client) GetQuota(ctx context.Context, username, rootUID, rootGID, path 
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
+		log.Info().Str("func", "GetQuota").Str("rootuid,rootgid", rootUID+","+rootGID).Str("username", username).Str("info:", fmt.Sprintf("%#v", resp)).Str("err", e.Error()).Msg("")
 		return nil, e
 	}
 
@@ -672,9 +681,9 @@ func (c *Client) GetQuota(ctx context.Context, username, rootUID, rootGID, path 
 	}
 
 	if resp.GetError() != nil {
-		log.Error().Str("func", "GetQuota").Str("rootuid,rootgid", rootUID+","+rootGID).Str("username", username).Str("info:", fmt.Sprintf("%#v", resp)).Int64("eoserrcode", resp.GetError().Code).Str("errmsg", resp.GetError().Msg).Msg("EOS negative resp")
+		log.Info().Str("func", "GetQuota").Str("rootuid,rootgid", rootUID+","+rootGID).Str("username", username).Str("info:", fmt.Sprintf("%#v", resp)).Int64("eoserrcode", resp.GetError().Code).Str("errmsg", resp.GetError().Msg).Msg("grpc response")
 	} else {
-		log.Debug().Str("func", "GetQuota").Str("rootuid,rootgid", rootUID+","+rootGID).Str("username", username).Str("info:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
+		log.Info().Str("func", "GetQuota").Str("rootuid,rootgid", rootUID+","+rootGID).Str("username", username).Str("info:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
 	}
 
 	if resp.Quota == nil {
@@ -685,29 +694,29 @@ func (c *Client) GetQuota(ctx context.Context, username, rootUID, rootGID, path 
 		return nil, errtypes.InternalError(fmt.Sprintf("Quota error from eos. rootuid: '%s' rootgid: '%s' info: '%#v'", rootUID, rootGID, resp.Quota))
 	}
 
+	log.Debug().Str("func", "GetQuota").Str("rootuid,rootgid", rootUID+","+rootGID).Str("quotanode:", fmt.Sprintf("%#v", resp.Quota.Quotanode[0])).Msg("grpc response")
+
 	qi := new(eosclient.QuotaInfo)
 	if resp == nil {
 		return nil, errtypes.InternalError("Out of memory")
 	}
 
 	// Let's loop on all the quotas that match this uid (apparently there can be many)
-	// If there are many for this node, we sum them up
 	for i := 0; i < len(resp.Quota.Quotanode); i++ {
-		log.Debug().Str("func", "GetQuota").Str("rootuid,rootgid", rootUID+","+rootGID).Str("quotanode:", fmt.Sprintf("%d: %#v", i, resp.Quota.Quotanode[i])).Msg("")
 
-		mx := int64(resp.Quota.Quotanode[i].Maxlogicalbytes) - int64(resp.Quota.Quotanode[i].Usedbytes)
+		mx := resp.Quota.Quotanode[i].Maxlogicalbytes - resp.Quota.Quotanode[i].Usedbytes
 		if mx < 0 {
 			mx = 0
 		}
-		qi.AvailableBytes += uint64(mx)
-		qi.UsedBytes += resp.Quota.Quotanode[i].Usedbytes
+		qi.AvailableBytes += mx
+		qi.UsedBytes += resp.Quota.Quotanode[0].Usedbytes
 
-		mx = int64(resp.Quota.Quotanode[i].Maxfiles) - int64(resp.Quota.Quotanode[i].Usedfiles)
+		mx = resp.Quota.Quotanode[0].Maxfiles - resp.Quota.Quotanode[0].Usedfiles
 		if mx < 0 {
 			mx = 0
 		}
-		qi.AvailableInodes += uint64(mx)
-		qi.UsedInodes += resp.Quota.Quotanode[i].Usedfiles
+		qi.AvailableInodes += mx
+		qi.UsedInodes += resp.Quota.Quotanode[0].Usedfiles
 	}
 
 	return qi, err
@@ -721,7 +730,7 @@ func (c *Client) SetQuota(ctx context.Context, rootUID, rootGID string, info *eo
 		log.Info().Str("func", "SetQuota").Str("rootuid,rootgid", rootUID+","+rootGID).Str("info:", fmt.Sprintf("%#v", info)).Msg("")
 
 		// EOS does not have yet this command... work in progress, this is a draft piece of code
-		// return errtypes.NotSupported("eosgrpc: SetQuota not implemented")
+		//return errtypes.NotSupported("eosgrpc: SetQuota not implemented")
 
 		// Initialize the common fields of the NSReq
 		rq, err := c.initNSRequest(ctx, rootUID, rootGID)
@@ -732,24 +741,24 @@ func (c *Client) SetQuota(ctx context.Context, rootUID, rootGID string, info *eo
 		msg := new(erpc.NSRequest_QuotaRequest)
 		msg.Path = []byte(info.QuotaNode)
 		msg.Id = new(erpc.RoleId)
-		uidInt, err := strconv.ParseUint(info.UID, 10, 64)
+		uidInt, err := strconv.ParseUint(info.Uid, 10, 64)
 		if err != nil {
 			return err
 		}
-
-		// We set a quota for an user, not a group!
+		gidInt, err := strconv.ParseUint(info.Gid, 10, 64)
+		if err != nil {
+			return err
+		}
 		msg.Id.Uid = uidInt
-		msg.Id.Gid = 0
+		msg.Id.Gid = gidInt
 		msg.Id.Username = info.Username
-		msg.Op = erpc.QUOTAOP_SET
-		msg.Maxbytes = info.MaxBytes
-		msg.Maxfiles = info.MaxFiles
 		rq.Command = &erpc.NSRequest_Quota{Quota: msg}
 
 		// Now send the req and see what happens
 		resp, err := c.cl.Exec(ctx, rq)
 		e := c.getRespError(resp, err)
 		if e != nil {
+			log.Info().Str("func", "SetQuota").Str("rootuid,rootgid", rootUID+","+rootGID).Str("info:", fmt.Sprintf("%#v", resp)).Str("err", e.Error()).Msg("")
 			return e
 		}
 
@@ -758,13 +767,13 @@ func (c *Client) SetQuota(ctx context.Context, rootUID, rootGID string, info *eo
 		}
 
 		if resp.GetError() != nil {
-			log.Error().Str("func", "SetQuota").Str("rootuid,rootgid", rootUID+","+rootGID).Str("info:", fmt.Sprintf("%#v", resp)).Int64("errcode", resp.GetError().Code).Str("errmsg", resp.GetError().Msg).Msg("EOS negative resp")
+			log.Info().Str("func", "SetQuota").Str("rootuid,rootgid", rootUID+","+rootGID).Str("info:", fmt.Sprintf("%#v", resp)).Int64("errcode", resp.GetError().Code).Str("errmsg", resp.GetError().Msg).Msg("grpc response")
 		} else {
-			log.Debug().Str("func", "SetQuota").Str("rootuid,rootgid", rootUID+","+rootGID).Str("info:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
+			log.Info().Str("func", "SetQuota").Str("rootuid,rootgid", rootUID+","+rootGID).Str("info:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
 		}
 
 		if resp.Quota == nil {
-			return errtypes.InternalError(fmt.Sprintf("nil quota response?  rootuid: '%s' rootgid: '%s'  info: '%#v'", rootUID, rootGID, info))
+			return errtypes.InternalError(fmt.Sprintf("nil quota response?  rootuid: '%s' rootgid: '%s'  path: '%s'", rootUID, rootGID, info))
 		}
 
 		if resp.Quota.Code != 0 {
