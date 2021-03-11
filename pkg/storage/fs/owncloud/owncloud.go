@@ -20,7 +20,6 @@ package owncloud
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -36,7 +35,6 @@ import (
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
-	"github.com/cs3org/reva/internal/grpc/services/storageprovider"
 	"github.com/cs3org/reva/pkg/appctx"
 	"github.com/cs3org/reva/pkg/errtypes"
 	"github.com/cs3org/reva/pkg/logger"
@@ -74,9 +72,8 @@ const (
 	mdPrefix          string = ocPrefix + "md."   // arbitrary metadata
 	favPrefix         string = ocPrefix + "fav."  // favorite flag, per user
 	etagPrefix        string = ocPrefix + "etag." // allow overriding a calculated etag with one from the extended attributes
-	checksumPrefix    string = ocPrefix + "cs."
-	checksumsKey      string = "http://owncloud.org/ns/checksums"
-	favoriteKey       string = "http://owncloud.org/ns/favorite"
+	// checksumPrefix    string = ocPrefix + "cs."   // TODO add checksum support
+
 )
 
 var defaultPermissions *provider.ResourcePermissions = &provider.ResourcePermissions{
@@ -615,6 +612,7 @@ func (fs *ocfs) convertToResourceInfo(ctx context.Context, fi os.FileInfo, ip st
 
 	metadata := map[string]string{}
 
+	favoriteKey := "http://owncloud.org/ns/favorite"
 	if _, ok := mdKeysMap[favoriteKey]; returnAllKeys || ok {
 		favorite := ""
 		if u, ok := user.ContextGetUser(ctx); ok {
@@ -683,16 +681,6 @@ func (fs *ocfs) convertToResourceInfo(ctx context.Context, fi os.FileInfo, ip st
 	}
 
 	ri.PermissionSet = fs.permissionSet(ctx, ri.Owner)
-
-	// checksums
-	if !fi.IsDir() {
-		if _, checksumRequested := mdKeysMap[checksumsKey]; returnAllKeys || checksumRequested {
-			// TODO which checksum was requested? sha1 adler32 or md5? for now hardcode sha1?
-			readChecksumIntoResourceChecksum(ctx, ip, storageprovider.XSSHA1, ri)
-			readChecksumIntoOpaque(ctx, ip, storageprovider.XSMD5, ri)
-			readChecksumIntoOpaque(ctx, ip, storageprovider.XSAdler32, ri)
-		}
-	}
 
 	return ri
 }
@@ -1826,9 +1814,6 @@ func (fs *ocfs) listShareFolderRoot(ctx context.Context, sp string, mdKeys []str
 
 	mds, err := ioutil.ReadDir(ip)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, errtypes.NotFound(fs.toStoragePath(ctx, filepath.Dir(ip)))
-		}
 		return nil, errors.Wrap(err, "ocfs: error listing shadow_files")
 	}
 
@@ -1965,7 +1950,6 @@ func (fs *ocfs) filterAsRevision(ctx context.Context, bn string, md os.FileInfo)
 			Key:   version,
 			Size:  uint64(md.Size()),
 			Mtime: uint64(mtime),
-			Etag:  calcEtag(ctx, md),
 		}
 	}
 	return nil
@@ -2152,7 +2136,7 @@ func (fs *ocfs) ListRecycle(ctx context.Context) ([]*provider.RecycleItem, error
 	return items, nil
 }
 
-func (fs *ocfs) RestoreRecycleItem(ctx context.Context, key, restorePath string) error {
+func (fs *ocfs) RestoreRecycleItem(ctx context.Context, key string) error {
 	// TODO check permission? on what? user must be the owner?
 	log := appctx.GetLogger(ctx)
 	rp, err := fs.getRecyclePath(ctx)
@@ -2167,17 +2151,16 @@ func (fs *ocfs) RestoreRecycleItem(ctx context.Context, key, restorePath string)
 		return nil
 	}
 
-	if restorePath == "" {
-		v, err := xattr.Get(src, trashOriginPrefix)
-		if err != nil {
-			log.Error().Err(err).Str("key", key).Str("path", src).Msg("could not read origin")
-		}
-		restorePath = filepath.Join("/", filepath.Clean(string(v)), strings.TrimSuffix(filepath.Base(src), suffix))
+	origin := "/"
+	if v, err := xattr.Get(src, trashOriginPrefix); err != nil {
+		log.Error().Err(err).Str("key", key).Str("path", src).Msg("could not read origin")
+	} else {
+		origin = filepath.Clean(string(v))
 	}
-	tgt := fs.toInternalPath(ctx, restorePath)
+	tgt := fs.toInternalPath(ctx, filepath.Join("/", origin, strings.TrimSuffix(filepath.Base(src), suffix)))
 	// move back to original location
 	if err := os.Rename(src, tgt); err != nil {
-		log.Error().Err(err).Str("key", key).Str("restorePath", restorePath).Str("src", src).Str("tgt", tgt).Msg("could not restore item")
+		log.Error().Err(err).Str("key", key).Str("origin", origin).Str("src", src).Str("tgt", tgt).Msg("could not restore item")
 		return errors.Wrap(err, "ocfs: could not restore item")
 	}
 	// unset trash origin location in metadata
@@ -2239,55 +2222,6 @@ func (fs *ocfs) propagate(ctx context.Context, leafPath string) error {
 		root = filepath.Join(root, parts[i])
 	}
 	return nil
-}
-
-func readChecksumIntoResourceChecksum(ctx context.Context, nodePath, algo string, ri *provider.ResourceInfo) {
-	v, err := xattr.Get(nodePath, checksumPrefix+algo)
-	log := appctx.GetLogger(ctx).
-		Debug().
-		Err(err).
-		Str("nodepath", nodePath).
-		Str("algorithm", algo)
-	switch {
-	case err == nil:
-		ri.Checksum = &provider.ResourceChecksum{
-			Type: storageprovider.PKG2GRPCXS(algo),
-			Sum:  hex.EncodeToString(v),
-		}
-	case isNoData(err):
-		log.Msg("checksum not set")
-	case isNotFound(err):
-		log.Msg("file not found")
-	default:
-		log.Msg("could not read checksum")
-	}
-}
-
-func readChecksumIntoOpaque(ctx context.Context, nodePath, algo string, ri *provider.ResourceInfo) {
-	v, err := xattr.Get(nodePath, checksumPrefix+algo)
-	log := appctx.GetLogger(ctx).
-		Debug().
-		Err(err).
-		Str("nodepath", nodePath).
-		Str("algorithm", algo)
-	switch {
-	case err == nil:
-		if ri.Opaque == nil {
-			ri.Opaque = &types.Opaque{
-				Map: map[string]*types.OpaqueEntry{},
-			}
-		}
-		ri.Opaque.Map[algo] = &types.OpaqueEntry{
-			Decoder: "plain",
-			Value:   []byte(hex.EncodeToString(v)),
-		}
-	case isNoData(err):
-		log.Msg("checksum not set")
-	case isNotFound(err):
-		log.Msg("file not found")
-	default:
-		log.Msg("could not read checksum")
-	}
 }
 
 // TODO propagate etag and mtime or append event to history? propagate on disk ...
