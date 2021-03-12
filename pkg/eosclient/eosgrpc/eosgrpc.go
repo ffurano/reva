@@ -1226,20 +1226,6 @@ func (c *Client) Write(ctx context.Context, auth eosclient.Authorization, path s
 
 		return c.httpcl.PUTFile(ctx, "", auth, path, wfd, length)
 	}
-=======
-	//fd, err := ioutil.TempFile(c.opt.CacheDirectory, "eoswrite-")
-	//if err != nil {
-	//		return err
-	//	}
-	//	defer fd.Close()
-	//	defer os.RemoveAll(fd.Name())
-	//
-	//	// copy stream to local temp file
-	//	_, err = io.Copy(fd, stream)
-	//	if err != nil {
-	//return err
-	//}
->>>>>>> Shut up another warning from Hound
 
 	return c.httpcl.PUTFile(ctx, "", auth, path, stream, length)
 
