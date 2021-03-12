@@ -303,7 +303,6 @@ func (c *Client) AddACL(ctx context.Context, auth, rootAuth eosclient.Authorizat
 		return e
 	}
 
-	log.Debug().Str("func", "AddACL").Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("")
 	if resp == nil {
 		return errtypes.NotFound(fmt.Sprintf("Path: %s", path))
 	}
@@ -353,7 +352,6 @@ func (c *Client) RemoveACL(ctx context.Context, auth, rootAuth eosclient.Authori
 		return e
 	}
 
-	log.Debug().Str("func", "RemoveACL").Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("")
 	if resp == nil {
 		return errtypes.NotFound(fmt.Sprintf("Path: %s", path))
 	}
@@ -437,7 +435,7 @@ func (c *Client) getACLForPath(ctx context.Context, auth eosclient.Authorization
 		return nil, errtypes.InternalError(fmt.Sprintf("nil response for uid: '%s' path: '%s'", auth.Role.UID, path))
 	}
 
-	log.Debug().Str("func", "GetACLForPath").Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("")
+	log.Debug().Str("func", "GetACLForPath").Str("path", path).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("grpc response")
 
 	if resp.Acl == nil {
 		return nil, errtypes.InternalError(fmt.Sprintf("nil acl for uid: '%s' path: '%s'", auth.Role.UID, path))
@@ -672,7 +670,6 @@ func (c *Client) GetQuota(ctx context.Context, username string, rootAuth eosclie
 	resp, err := c.cl.Exec(ctx, rq)
 	e := c.getRespError(resp, err)
 	if e != nil {
-		log.Info().Str("func", "GetQuota").Str("rootuid,rootgid", rootUID+","+rootGID).Str("username", username).Str("info:", fmt.Sprintf("%#v", resp)).Str("err", e.Error()).Msg("")
 		return nil, e
 	}
 
