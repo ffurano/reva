@@ -18,6 +18,7 @@ require (
 	github.com/eventials/go-tus v0.0.0-20200718001131-45c7ec8f5d59
 	github.com/ffurano/grpc-proto v0.0.0-20210312134900-65801a1ca184
 	github.com/go-ldap/ldap/v3 v3.3.0
+	github.com/ffurano/grpc-proto v0.0.0-20210312134900-65801a1ca184
 	github.com/go-openapi/errors v0.19.6 // indirect
 	github.com/go-openapi/strfmt v0.19.2 // indirect
 	github.com/go-sql-driver/mysql v1.5.0
