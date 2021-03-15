@@ -760,34 +760,6 @@ func (fs *eosfs) getMDShareFolder(ctx context.Context, p string, mdKeys []string
 func (fs *eosfs) ListFolder(ctx context.Context, ref *provider.Reference, mdKeys []string) ([]*provider.ResourceInfo, error) {
 	log := appctx.GetLogger(ctx)
 
-	// test... remove me
-	rootuid, rootgid, err := fs.getRootUIDAndGID(ctx)
-	if err != nil {
-		return nil, err
-	}
-	uid, gid, err := fs.getUserUIDAndGID(ctx, u)
-	if err != nil {
-		return nil, errors.Wrap(err, "eos: no uid in ctx")
-	}
-	// set quota for user
-	quotaInfo := &eosclient.SetQuotaInfo{
-		Username:  u.Username,
-		UID:       uid,
-		GID:       gid,
-		MaxBytes:  fs.conf.DefaultQuotaBytes,
-		MaxFiles:  fs.conf.DefaultQuotaFiles,
-		QuotaNode: fs.conf.QuotaNode,
-	}
-
-	err = fs.c.SetQuota(ctx, rootuid, rootgid, quotaInfo)
-	if err != nil {
-		err := errors.Wrap(err, "eosfs: error setting quota")
-		return nil, err
-	}
-
-	fs.GetQuota(ctx)
-	// end test
-
 	p, err := fs.resolve(ctx, u, ref)
 	if err != nil {
 		return nil, errors.Wrap(err, "eosfs: error resolving reference")
