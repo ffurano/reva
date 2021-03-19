@@ -111,4 +111,14 @@ type Config struct {
 	// URI of the EOS MGM grpc server
 	// Default is empty
 	GrpcURI string `mapstructure:"master_grpc_uri"`
+
+	// Normally the eosgrpc plugin streams data on the fly.
+	// Setting this to true will make reva use the temp cachedirectory
+	// as intermediate step for read operations
+	ReadUsesLocalTemp bool `mapstructure:"read_uses_local_temp"`
+
+	// Normally the eosgrpc plugin streams data on the fly.
+	// Setting this to true will make reva use the temp cachedirectory
+	// as intermediate step for write operations
+	WriteUsesLocalTemp bool `mapstructure:"write_uses_local_temp"`
 }
