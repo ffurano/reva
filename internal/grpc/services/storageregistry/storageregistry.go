@@ -108,31 +108,38 @@ func (s *service) ListStorageProviders(ctx context.Context, req *registrypb.List
 		}, nil
 	}
 
+	providers := make([]*registrypb.ProviderInfo, 0, len(pinfos))
+	for _, info := range pinfos {
+		fill(info)
+		providers = append(providers, info)
+	}
+
 	res := &registrypb.ListStorageProvidersResponse{
 		Status:    status.NewOK(ctx),
-		Providers: pinfos,
+		Providers: providers,
 	}
 	return res, nil
 }
 
-func (s *service) GetStorageProviders(ctx context.Context, req *registrypb.GetStorageProvidersRequest) (*registrypb.GetStorageProvidersResponse, error) {
-	p, err := s.reg.FindProviders(ctx, req.Ref)
+func (s *service) GetStorageProvider(ctx context.Context, req *registrypb.GetStorageProviderRequest) (*registrypb.GetStorageProviderResponse, error) {
+	p, err := s.reg.FindProvider(ctx, req.Ref)
 	if err != nil {
 		switch err.(type) {
 		case errtypes.IsNotFound:
-			return &registrypb.GetStorageProvidersResponse{
+			return &registrypb.GetStorageProviderResponse{
 				Status: status.NewNotFound(ctx, err.Error()),
 			}, nil
 		default:
-			return &registrypb.GetStorageProvidersResponse{
+			return &registrypb.GetStorageProviderResponse{
 				Status: status.NewInternal(ctx, err, "error finding storage provider"),
 			}, nil
 		}
 	}
 
-	res := &registrypb.GetStorageProvidersResponse{
-		Status:    status.NewOK(ctx),
-		Providers: p,
+	fill(p)
+	res := &registrypb.GetStorageProviderResponse{
+		Status:   status.NewOK(ctx),
+		Provider: p,
 	}
 	return res, nil
 }
@@ -154,3 +161,6 @@ func (s *service) GetHome(ctx context.Context, req *registrypb.GetHomeRequest) (
 	}
 	return res, nil
 }
+
+// TODO(labkode): fix
+func fill(p *registrypb.ProviderInfo) {}
