@@ -151,21 +151,19 @@ func newgrpc(ctx context.Context, opt *Options) (erpc.EosClient, error) {
 
 	conn, err := grpc.Dial(opt.GrpcURI, grpc.WithInsecure())
 	if err != nil {
-		log.Debug().Str("Error connecting to ", "'"+opt.GrpcURI+"' ").Str("err", err.Error()).Msg("")
-		return nil, err
+		log.Warn().Str("Error connecting to ", "'"+opt.GrpcURI+"' ").Str("err", err.Error()).Msg("")
 	}
 
 	log.Debug().Str("Going to ping ", "'"+opt.GrpcURI+"' ").Msg("")
 	ecl := erpc.NewEosClient(conn)
-	// If we can't ping... just print warnings. In the case EOS is down, grpc will take care of
+	// If we can't ping... just print ugly warnings. In the case EOS is down, grpc will take care of
 	// connecting later
 	prq := new(erpc.PingRequest)
 	prq.Authkey = opt.Authkey
 	prq.Message = []byte("hi this is a ping from reva")
 	prep, err := ecl.Ping(ctx, prq)
 	if err != nil {
-		log.Error().Str("Ping to ", "'"+opt.GrpcURI+"' ").Str("err", err.Error()).Msg("")
-		return nil, err
+		log.Warn().Str("Could not ping to ", "'"+opt.GrpcURI+"' ").Str("err", err.Error()).Msg("")
 	}
 
 	if prep == nil {
@@ -183,13 +181,6 @@ func New(opt *Options) *Client {
 	opt.init()
 	c := new(Client)
 	c.opt = opt
-
-	t, err := c.htopts.Init()
-	if err != nil {
-		panic("Cant't init the EOS http client options")
-	}
-	c.httptransport = t
-	c.htopts.BaseURL = c.opt.URL
 
 	tctx := appctx.WithLogger(context.Background(), &tlog)
 	ccl, err := newgrpc(tctx, opt)
