@@ -19,7 +19,6 @@
 package shares
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -29,7 +28,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -54,18 +52,17 @@ import (
 
 // Handler implements the shares part of the ownCloud sharing API
 type Handler struct {
-	gatewayAddr            string
-	publicURL              string
-	sharePrefix            string
-	homeNamespace          string
-	additionalInfoTemplate *template.Template
-	userIdentifierCache    *ttlcache.Cache
+	gatewayAddr         string
+	publicURL           string
+	sharePrefix         string
+	homeNamespace       string
+	userIdentifierCache *ttlcache.Cache
 }
 
 // we only cache the minimal set of data instead of the full user metadata
 type userIdentifiers struct {
 	DisplayName string
-	Username    string
+	UserName    string
 	Mail        string
 }
 
@@ -75,8 +72,6 @@ func (h *Handler) Init(c *config.Config) error {
 	h.publicURL = c.Config.Host
 	h.sharePrefix = c.SharePrefix
 	h.homeNamespace = c.HomeNamespace
-
-	h.additionalInfoTemplate, _ = template.New("additionalInfo").Parse(c.AdditionalInfoAttribute)
 
 	h.userIdentifierCache = ttlcache.NewCache()
 	_ = h.userIdentifierCache.SetTTL(60 * time.Second)
@@ -904,7 +899,7 @@ func (h *Handler) mustGetIdentifiers(ctx context.Context, c gateway.GatewayAPICl
 		}
 		ui = &userIdentifiers{
 			DisplayName: res.Group.DisplayName,
-			Username:    res.Group.GroupName,
+			UserName:    res.Group.GroupName,
 			Mail:        res.Group.Mail,
 		}
 	} else {
@@ -933,7 +928,7 @@ func (h *Handler) mustGetIdentifiers(ctx context.Context, c gateway.GatewayAPICl
 		}
 		ui = &userIdentifiers{
 			DisplayName: res.User.DisplayName,
-			Username:    res.User.Username,
+			UserName:    res.User.Username,
 			Mail:        res.User.Mail,
 		}
 	}
@@ -945,44 +940,34 @@ func (h *Handler) mustGetIdentifiers(ctx context.Context, c gateway.GatewayAPICl
 func (h *Handler) mapUserIds(ctx context.Context, c gateway.GatewayAPIClient, s *conversions.ShareData) {
 	if s.UIDOwner != "" {
 		owner := h.mustGetIdentifiers(ctx, c, s.UIDOwner, false)
-		s.UIDOwner = owner.Username
+		s.UIDOwner = owner.UserName
 		if s.DisplaynameOwner == "" {
 			s.DisplaynameOwner = owner.DisplayName
 		}
 		if s.AdditionalInfoFileOwner == "" {
-			s.AdditionalInfoFileOwner = h.getAdditionalInfoAttribute(ctx, owner)
+			s.AdditionalInfoFileOwner = owner.Mail
 		}
 	}
 
 	if s.UIDFileOwner != "" {
 		fileOwner := h.mustGetIdentifiers(ctx, c, s.UIDFileOwner, false)
-		s.UIDFileOwner = fileOwner.Username
+		s.UIDFileOwner = fileOwner.UserName
 		if s.DisplaynameFileOwner == "" {
 			s.DisplaynameFileOwner = fileOwner.DisplayName
 		}
 		if s.AdditionalInfoOwner == "" {
-			s.AdditionalInfoOwner = h.getAdditionalInfoAttribute(ctx, fileOwner)
+			s.AdditionalInfoOwner = fileOwner.Mail
 		}
 	}
 
 	if s.ShareWith != "" && s.ShareWith != "***redacted***" {
 		shareWith := h.mustGetIdentifiers(ctx, c, s.ShareWith, s.ShareType == conversions.ShareTypeGroup)
-		s.ShareWith = shareWith.Username
+		s.ShareWith = shareWith.UserName
 		if s.ShareWithDisplayname == "" {
 			s.ShareWithDisplayname = shareWith.DisplayName
 		}
 		if s.ShareWithAdditionalInfo == "" {
-			s.ShareWithAdditionalInfo = h.getAdditionalInfoAttribute(ctx, shareWith)
+			s.ShareWithAdditionalInfo = shareWith.Mail
 		}
 	}
-}
-
-func (h *Handler) getAdditionalInfoAttribute(ctx context.Context, u *userIdentifiers) string {
-	b := bytes.Buffer{}
-	if err := h.additionalInfoTemplate.Execute(&b, u); err != nil {
-		log := appctx.GetLogger(ctx)
-		log.Warn().Err(err).Msg("failed to parse additional info template")
-		return ""
-	}
-	return b.String()
 }
