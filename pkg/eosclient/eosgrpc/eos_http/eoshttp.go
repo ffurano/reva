@@ -25,15 +25,19 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
-	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cs3org/reva/pkg/appctx"
 	"github.com/cs3org/reva/pkg/errtypes"
 	"github.com/cs3org/reva/pkg/logger"
+	"github.com/rs/zerolog/log"
+)
+
+const (
+	versionPrefix = ".sys.v#."
 )
 
 // Options to configure the Client.
@@ -53,18 +57,6 @@ type Options struct {
 	// Timeout in seconds for performing an operation. Includes every redirection, retry, etc
 	OpTimeout int
 
-	// Max idle conns per Transport
-	MaxIdleConns int
-
-	// Max conns per transport per destination host
-	MaxConnsPerHost int
-
-	// Max idle conns per transport per destination host
-	MaxIdleConnsPerHost int
-
-	// TTL for an idle conn per transport
-	IdleConnTimeout int
-
 	// If the URL is https, then we need to configure this client
 	// with the usual TLS stuff
 	// Defaults are /etc/grid-security/hostcert.pem and /etc/grid-security/hostkey.pem
@@ -78,8 +70,13 @@ type Options struct {
 	ClientCAFiles string
 }
 
-// Init fills the basic fields
-func (opt *Options) Init() (*http.Transport, error) {
+// We want just one instance of these options in the whole app, as we don't want to
+// instantiate more than once the http client internals. For example to have
+// http keepalive, pools, etc...
+var httpTransport *http.Transport
+var httpTransportMtx sync.Mutex
+
+func (opt *Options) Init() error {
 
 	if opt.BaseURL == "" {
 		opt.BaseURL = "https://eos-example.org"
@@ -94,18 +91,6 @@ func (opt *Options) Init() (*http.Transport, error) {
 	if opt.OpTimeout == 0 {
 		opt.OpTimeout = 360
 	}
-	if opt.MaxIdleConns == 0 {
-		opt.MaxIdleConns = 100
-	}
-	if opt.MaxConnsPerHost == 0 {
-		opt.MaxConnsPerHost = 64
-	}
-	if opt.MaxIdleConnsPerHost == 0 {
-		opt.MaxIdleConnsPerHost = 8
-	}
-	if opt.IdleConnTimeout == 0 {
-		opt.IdleConnTimeout = 30
-	}
 
 	if opt.ClientCertFile == "" {
 		opt.ClientCertFile = "/etc/grid-security/hostcert.pem"
@@ -119,54 +104,55 @@ func (opt *Options) Init() (*http.Transport, error) {
 	}
 	if opt.ClientCADirs != "" {
 		os.Setenv("SSL_CERT_DIR", opt.ClientCADirs)
-	} else {
-		os.Setenv("SSL_CERT_DIR", "/etc/grid-security/certificates")
 	}
+	os.Setenv("SSL_CERT_DIR", "/etc/grid-security/certificates")
 
 	cert, err := tls.LoadX509KeyPair(opt.ClientCertFile, opt.ClientKeyFile)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	// TODO: the error reporting of http.transport is insufficient
-	// we may want to check manually at least the existence of the certfiles
-	// The point is that also the error reporting of the context that calls this function
-	// is weak
-	t := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			Certificates: []tls.Certificate{cert},
-		},
-		MaxIdleConns:        opt.MaxIdleConns,
-		MaxConnsPerHost:     opt.MaxConnsPerHost,
-		MaxIdleConnsPerHost: opt.MaxIdleConnsPerHost,
-		IdleConnTimeout:     time.Duration(opt.IdleConnTimeout) * time.Second,
-		DisableCompression:  true,
-	}
+	httpTransportMtx.Lock()
+	// Lock so only one goroutine at a time can access the var
+	// Note that we assume that the variable will stay constant,
+	// hence we don't need to lock it when used
+	defer httpTransportMtx.Unlock()
 
-	return t, nil
+	if httpTransport == nil {
+
+		httpTransport = &http.Transport{
+			TLSClientConfig: &tls.Config{
+				Certificates: []tls.Certificate{cert},
+			},
+			MaxIdleConns:       10,
+			IdleConnTimeout:    30 * time.Second,
+			DisableCompression: true,
+		}
+	}
+	return nil
 }
 
-// Client performs HTTP-based tasks (e.g. upload, download)
+// EosHttpClient performs HTTP-based tasks (e.g. upload, download)
 // against a EOS management node (MGM)
 // using the EOS XrdHTTP interface.
 // In this module we wrap eos-related behaviour, e.g. headers or r/w retries
-type Client struct {
+type EosHttpClient struct {
 	opt Options
 
 	cl *http.Client
 }
 
 // New creates a new client with the given options.
-func New(opt *Options, t *http.Transport) *Client {
-	log := logger.New().With().Int("pid", os.Getpid()).Logger()
-	log.Debug().Str("func", "New").Str("Creating new eoshttp client. opt: ", "'"+fmt.Sprintf("%#v", opt)+"' ").Msg("")
+func New(opt *Options) *EosHttpClient {
+	tlog := logger.New().With().Int("pid", os.Getpid()).Logger()
+	tlog.Debug().Str("func", "New").Str("Creating new eoshttp client. opt: ", "'"+fmt.Sprintf("%#v", opt)+"' ").Msg("")
 
 	if opt == nil {
 		log.Debug().Str("opt is nil, Error creating http client ", "").Msg("")
 		return nil
 	}
 
-	c := new(Client)
+	c := new(EosHttpClient)
 	c.opt = *opt
 
 	// Let's be successful if the ping was ok. This is an initialization phase
@@ -174,10 +160,11 @@ func New(opt *Options, t *http.Transport) *Client {
 	log.Debug().Str("func", "newhttp").Str("Connecting to ", "'"+opt.BaseURL+"'").Msg("")
 
 	c.cl = &http.Client{
-		Transport: t}
+		Transport: httpTransport}
 
 	c.cl.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
+		//return nil
 	}
 
 	if c.cl == nil {
@@ -193,23 +180,16 @@ func rspdesc(rsp *http.Response) string {
 	desc := "'" + fmt.Sprintf("%d", rsp.StatusCode) + "'" + ": '" + rsp.Status + "'"
 
 	buf := new(bytes.Buffer)
-	r := "<none>"
-	n, e := buf.ReadFrom(rsp.Body)
+	buf.ReadFrom(rsp.Body)
 
-	if e != nil {
-		r = "Error reading body: '" + e.Error() + "'"
-	} else if n > 0 {
-		r = buf.String()
-	}
-
-	desc += " - '" + r + "'"
+	desc += " - '" + buf.String() + "'"
 
 	return desc
 }
 
 // If the error is not nil, take that
 // If there is an error coming from EOS, erturn a descriptive error
-func (c *Client) getRespError(rsp *http.Response, err error) error {
+func (c *EosHttpClient) getRespError(rsp *http.Response, err error) error {
 	if err != nil {
 		return err
 	}
@@ -232,17 +212,12 @@ func (c *Client) getRespError(rsp *http.Response, err error) error {
 }
 
 // From the basepath and the file path... build an url
-func (c *Client) buildFullURL(urlpath, uid, gid string) (string, error) {
-
-	u, err := url.Parse(c.opt.BaseURL)
-	if err != nil {
-		return "", err
+func (c *EosHttpClient) buildFullUrl(urlpath, uid, gid string) (string, error) {
+	s := c.opt.BaseURL
+	if len(urlpath) > 0 && urlpath[0] != '/' {
+		s += "/"
 	}
-
-	u, err = u.Parse(urlpath)
-	if err != nil {
-		return "", err
-	}
+	s += urlpath
 
 	// I feel safer putting here a check, to prohibit malicious users to
 	// inject a false uid/gid into the url
@@ -256,35 +231,43 @@ func (c *Client) buildFullURL(urlpath, uid, gid string) (string, error) {
 		return "", errtypes.PermissionDenied("Illegal malicious url " + urlpath)
 	}
 
-	v := u.Query()
-
+	eosuidgid := ""
 	if len(uid) > 0 {
-		v.Set("eos.ruid", uid)
+		eosuidgid += "eos.ruid=" + uid
 	}
 	if len(gid) > 0 {
-		v.Set("eos.rgid", gid)
+		if len(eosuidgid) > 0 {
+			eosuidgid += "&"
+		}
+		eosuidgid += "eos.rgid=" + gid
 	}
 
-	u.RawQuery = v.Encode()
-	return u.String(), nil
+	if strings.Contains(urlpath, "?") {
+		s += "&"
+	} else {
+		s += "?"
+	}
+	s += eosuidgid
+
+	return s, nil
 }
 
-// GETFile does an entire GET to download a full file. Returns a stream to read the content from
-func (c *Client) GETFile(ctx context.Context, httptransport *http.Transport, remoteuser, uid, gid, urlpath string, stream io.WriteCloser) (io.ReadCloser, error) {
+// PUTFile does an entire PUT to upload a full file, taking the data from a stream
+func (c *EosHttpClient) GETFile(ctx context.Context, remoteuser, uid, gid, urlpath string, stream io.WriteCloser) (error, io.ReadCloser) {
 
 	log := appctx.GetLogger(ctx)
 	log.Info().Str("func", "GETFile").Str("remoteuser", remoteuser).Str("uid,gid", uid+","+gid).Str("path", urlpath).Msg("")
 
 	// Now send the req and see what happens
-	finalurl, err := c.buildFullURL(urlpath, uid, gid)
+	finalurl, err := c.buildFullUrl(urlpath, uid, gid)
 	if err != nil {
 		log.Error().Str("func", "GETFile").Str("url", finalurl).Str("err", err.Error()).Msg("can't create request")
-		return nil, err
+		return err, nil
 	}
 	req, err := http.NewRequestWithContext(ctx, "GET", finalurl, nil)
 	if err != nil {
 		log.Error().Str("func", "GETFile").Str("url", finalurl).Str("err", err.Error()).Msg("can't create request")
-		return nil, err
+		return err, nil
 	}
 
 	ntries := 0
@@ -298,7 +281,7 @@ func (c *Client) GETFile(ctx context.Context, httptransport *http.Transport, rem
 		tdiff := time.Now().Unix() - timebegin
 		if tdiff > int64(c.opt.OpTimeout) {
 			log.Error().Str("func", "GETFile").Str("url", finalurl).Int64("timeout", tdiff).Int("ntries", ntries).Msg("")
-			return nil, errtypes.InternalError("Timeout with url" + finalurl)
+			return errtypes.InternalError("Timeout with url" + finalurl), nil
 		}
 
 		// Execute the request. I don't like that there is no explicit timeout or buffer control on the input stream
@@ -306,24 +289,24 @@ func (c *Client) GETFile(ctx context.Context, httptransport *http.Transport, rem
 		resp, err := c.cl.Do(req)
 
 		// Let's support redirections... and if we retry we have to retry at the same FST, avoid going back to the MGM
-		if resp != nil && (resp.StatusCode == http.StatusFound || resp.StatusCode == http.StatusTemporaryRedirect) {
+		if resp != nil && (resp.StatusCode == 307 || resp.StatusCode == 302) {
 
-			// io.Copy(ioutil.Discard, resp.Body)
-			// resp.Body.Close()
+			//io.Copy(ioutil.Discard, resp.Body)
+			//resp.Body.Close()
 
 			loc, err := resp.Location()
 			if err != nil {
 				log.Error().Str("func", "GETFile").Str("url", finalurl).Str("err", err.Error()).Msg("can't get a new location for a redirection")
-				return nil, err
+				return err, nil
 			}
 
 			c.cl = &http.Client{
-				Transport: httptransport}
+				Transport: httpTransport}
 
 			req, err = http.NewRequestWithContext(ctx, "GET", loc.String(), nil)
 			if err != nil {
 				log.Error().Str("func", "GETFile").Str("url", loc.String()).Str("err", err.Error()).Msg("can't create redirected request")
-				return nil, err
+				return err, nil
 			}
 
 			req.Close = true
@@ -344,34 +327,34 @@ func (c *Client) GETFile(ctx context.Context, httptransport *http.Transport, rem
 				continue
 			}
 			log.Error().Str("func", "GETFile").Str("url", finalurl).Str("err", e.Error()).Msg("")
-			return nil, e
+			return e, nil
 		}
 
 		log.Debug().Str("func", "GETFile").Str("url", finalurl).Str("resp:", fmt.Sprintf("%#v", resp)).Msg("")
 		if resp == nil {
-			return nil, errtypes.NotFound(fmt.Sprintf("url: %s", finalurl))
+			return errtypes.NotFound(fmt.Sprintf("url: %s", finalurl)), nil
 		}
 
 		if stream != nil {
 			// Streaming versus localfile. If we have bene given a dest stream then copy the body into it
 			_, err = io.Copy(stream, resp.Body)
-			return nil, err
+			return nil, nil
 		}
 
 		// If we have not been given a stream to write into then return our stream to read from
-		return resp.Body, nil
+		return nil, resp.Body
 	}
 
 }
 
 // PUTFile does an entire PUT to upload a full file, taking the data from a stream
-func (c *Client) PUTFile(ctx context.Context, httptransport *http.Transport, remoteuser, uid, gid, urlpath string, stream io.ReadCloser, length int64) error {
+func (c *EosHttpClient) PUTFile(ctx context.Context, remoteuser, uid, gid, urlpath string, stream io.ReadCloser) error {
 
 	log := appctx.GetLogger(ctx)
-	log.Info().Str("func", "PUTFile").Str("remoteuser", remoteuser).Str("uid,gid", uid+","+gid).Str("path", urlpath).Int64("length", length).Msg("")
+	log.Info().Str("func", "PUTFile").Str("remoteuser", remoteuser).Str("uid,gid", uid+","+gid).Str("path", urlpath).Msg("")
 
 	// Now send the req and see what happens
-	finalurl, err := c.buildFullURL(urlpath, uid, gid)
+	finalurl, err := c.buildFullUrl(urlpath, uid, gid)
 	if err != nil {
 		log.Error().Str("func", "PUTFile").Str("url", finalurl).Str("err", err.Error()).Msg("can't create request")
 		return err
@@ -402,11 +385,11 @@ func (c *Client) PUTFile(ctx context.Context, httptransport *http.Transport, rem
 		log.Debug().Str("func", "PUTFile").Msg("sending req")
 		resp, err := c.cl.Do(req)
 
-		// Let's support redirections... and if we retry we retry at the same FST
+		// Let's support redirections... and if we retry we have to retry at the same FST, avoid going back to the MGM
 		if resp != nil && resp.StatusCode == 307 {
 
-			// io.Copy(ioutil.Discard, resp.Body)
-			// resp.Body.Close()
+			//io.Copy(ioutil.Discard, resp.Body)
+			//resp.Body.Close()
 
 			loc, err := resp.Location()
 			if err != nil {
@@ -415,35 +398,12 @@ func (c *Client) PUTFile(ctx context.Context, httptransport *http.Transport, rem
 			}
 
 			c.cl = &http.Client{
-				Transport: httptransport}
+				Transport: httpTransport}
 
 			req, err = http.NewRequestWithContext(ctx, "PUT", loc.String(), stream)
 			if err != nil {
 				log.Error().Str("func", "PUTFile").Str("url", loc.String()).Str("err", err.Error()).Msg("can't create redirected request")
 				return err
-			}
-			if length >= 0 {
-				log.Debug().Str("func", "PUTFile").Int64("Content-Length", length).Msg("setting header")
-				req.Header.Set("Content-Length", strconv.FormatInt(length, 10))
-
-			}
-			if err != nil {
-				log.Error().Str("func", "PUTFile").Str("url", loc.String()).Str("err", err.Error()).Msg("can't create redirected request")
-				return err
-			}
-			if length >= 0 {
-				log.Debug().Str("func", "PUTFile").Int64("Content-Length", length).Msg("setting header")
-				req.Header.Set("Content-Length", strconv.FormatInt(length, 10))
-
-			}
-			if err != nil {
-				log.Error().Str("func", "PUTFile").Str("url", loc.String()).Str("err", err.Error()).Msg("can't create redirected request")
-				return err
-			}
-			if length >= 0 {
-				log.Debug().Str("func", "PUTFile").Int64("Content-Length", length).Msg("setting header")
-				req.Header.Set("Content-Length", strconv.FormatInt(length, 10))
-
 			}
 
 			log.Debug().Str("func", "PUTFile").Str("location", loc.String()).Msg("redirection")
@@ -475,14 +435,14 @@ func (c *Client) PUTFile(ctx context.Context, httptransport *http.Transport, rem
 
 }
 
-// Head performs a HEAD req. Useful to check the server
-func (c *Client) Head(ctx context.Context, remoteuser, uid, gid, urlpath string) error {
+// performs a HEAD req. Useful to check the server
+func (c *EosHttpClient) Head(ctx context.Context, remoteuser, uid, gid, urlpath string) error {
 
 	log := appctx.GetLogger(ctx)
 	log.Info().Str("func", "Head").Str("remoteuser", remoteuser).Str("uid,gid", uid+","+gid).Str("path", urlpath).Msg("")
 
 	// Now send the req and see what happens
-	finalurl, err := c.buildFullURL(urlpath, uid, gid)
+	finalurl, err := c.buildFullUrl(urlpath, uid, gid)
 	if err != nil {
 		log.Error().Str("func", "Head").Str("url", finalurl).Str("err", err.Error()).Msg("can't create request")
 		return err
@@ -523,6 +483,6 @@ func (c *Client) Head(ctx context.Context, remoteuser, uid, gid, urlpath string)
 			return errtypes.NotFound(fmt.Sprintf("url: %s", finalurl))
 		}
 	}
-	// return nil
+	return nil
 
 }
