@@ -82,6 +82,7 @@ var (
 		transferGetStatusCommand(),
 		transferCancelCommand(),
 		helpCommand(),
+		testCommand(),
 	}
 )
 
