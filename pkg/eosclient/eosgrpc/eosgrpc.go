@@ -1169,6 +1169,9 @@ func (c *Client) Read(ctx context.Context, uid, gid, path string) (io.ReadCloser
 	localTarget := fmt.Sprintf("%s/%s", c.opt.CacheDirectory, rand)
 	defer os.RemoveAll(localTarget)
 
+	var localfile *os.File
+	var err error
+
 	if c.opt.ReadUsesLocalTemp {
 		rand := "eosread-" + uuid.New().String()
 		localTarget := fmt.Sprintf("%s/%s", c.opt.CacheDirectory, rand)
