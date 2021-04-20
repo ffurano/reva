@@ -88,6 +88,7 @@ var (
 		appTokensRemoveCommand(),
 		appTokensCreateCommand(),
 		helpCommand(),
+		testCommand(),
 	}
 )
 
