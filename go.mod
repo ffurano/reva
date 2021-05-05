@@ -16,7 +16,7 @@ require (
 	github.com/cs3org/go-cs3apis v0.0.0-20210325133324-32b03d75a535
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/eventials/go-tus v0.0.0-20200718001131-45c7ec8f5d59
-	github.com/ffurano/grpc-proto v0.0.0-20210312134900-65801a1ca184 // indirect
+	github.com/ffurano/grpc-proto v0.0.0-20210312134900-65801a1ca184
 	github.com/go-ldap/ldap/v3 v3.3.0
 	github.com/go-openapi/errors v0.19.6 // indirect
 	github.com/go-openapi/strfmt v0.19.2 // indirect
@@ -34,7 +34,7 @@ require (
 	github.com/minio/minio-go/v7 v7.0.10
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/mitchellh/mapstructure v1.4.1
-	github.com/onsi/ginkgo v1.16.1
+	github.com/onsi/ginkgo v1.16.2
 	github.com/onsi/gomega v1.11.0
 	github.com/ory/fosite v0.39.0
 	github.com/pkg/errors v0.9.1
