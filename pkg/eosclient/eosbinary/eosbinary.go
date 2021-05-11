@@ -896,6 +896,10 @@ func (c *Client) mapToFileInfo(kv map[string]string) (*eosclient.FileInfo, error
 			mtimeSet = false
 		}
 	}
+	if mtimesec == 0 {
+		mtimeSet = false
+	}
+
 	if !mtimeSet {
 		mtimeSplit := strings.Split(kv["mtime"], ".")
 		if mtimesec, err = strconv.ParseUint(mtimeSplit[0], 10, 64); err != nil {
