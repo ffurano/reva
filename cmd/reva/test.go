@@ -46,10 +46,13 @@ var testCommand = func() *command {
 		for i := 0; i < 500; i++ {
 
 			b, err := executeCommand(uploadCommand(), "-protocol", "simple", "/tmp/1MFile", "/home/testperf/file-"+strconv.FormatInt(int64(i), 10))
+
 			if err != nil {
 				fmt.Println("testtest ", b, err)
 				return nil
 			}
+
+			b.Reset()
 		}
 
 		elapsedupload := time.Since(start)
@@ -64,6 +67,8 @@ var testCommand = func() *command {
 				fmt.Println("testtest ", b, err)
 				return nil
 			}
+
+			b.Reset()
 		}
 
 		elapseddownload := time.Since(start)
@@ -78,6 +83,8 @@ var testCommand = func() *command {
 				fmt.Println("testtest ", b, err)
 				return nil
 			}
+
+			b.Reset()
 		}
 
 		elapsedrm := time.Since(start)
