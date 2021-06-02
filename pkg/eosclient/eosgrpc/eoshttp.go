@@ -393,6 +393,10 @@ func (c *EOSHTTPClient) PUTFile(ctx context.Context, remoteuser string, auth eos
 			}
 
 			req, err = http.NewRequestWithContext(ctx, "PUT", loc.String(), stream)
+			if err != nil {
+				log.Error().Str("func", "PUTFile").Str("url", loc.String()).Str("err", err.Error()).Msg("can't create redirected request")
+				return err
+			}
 			if length >= 0 {
 				log.Debug().Str("func", "PUTFile").Int64("Content-Length", length).Msg("setting header")
 				req.Header.Set("Content-Length", strconv.FormatInt(length, 10))
