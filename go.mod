@@ -31,6 +31,7 @@ require (
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/jedib0t/go-pretty v4.3.0+incompatible
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
+	github.com/minio/minio-go/v7 v7.0.10 // indirect
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/onsi/ginkgo v1.16.4
@@ -39,8 +40,9 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/xattr v0.4.3
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
-	github.com/rs/cors v1.8.0
-	github.com/rs/zerolog v1.23.0
+	github.com/prometheus/statsd_exporter v0.15.0 // indirect
+	github.com/rs/cors v1.7.0
+	github.com/rs/zerolog v1.22.0
 	github.com/sciencemesh/meshdirectory-web v1.0.4
 	github.com/sethvargo/go-password v0.2.0
 	github.com/stretchr/testify v1.7.0
@@ -51,8 +53,9 @@ require (
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sys v0.0.0-20210423082822-04245dca01da
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
-	google.golang.org/grpc v1.39.0
-	google.golang.org/protobuf v1.27.1
+	google.golang.org/genproto v0.0.0-20200806141610-86f49bd18e98 // indirect
+	google.golang.org/grpc v1.38.0
+	google.golang.org/protobuf v1.26.0
 	gotest.tools v2.2.0+incompatible
 )
 
