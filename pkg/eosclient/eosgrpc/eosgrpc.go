@@ -361,6 +361,7 @@ func (c *Client) GetACL(ctx context.Context, auth eosclient.Authorization, path,
 	if err != nil {
 		return nil, err
 	}
+
 	for _, a := range acls {
 		if a.Type == aclType && a.Qualifier == target {
 			return a, nil
@@ -378,6 +379,18 @@ func (c *Client) ListACLs(ctx context.Context, auth eosclient.Authorization, pat
 	log.Info().Str("func", "ListACLs").Str("uid,gid", auth.Role.UID+","+auth.Role.GID).Str("path", path).Msg("")
 
 	parsedACLs, err := c.getACLForPath(ctx, auth, path)
+	if err != nil {
+		return nil, err
+	}
+
+	// Also get the ACLs for the parent path, as EOS not always propagates them
+	parentPath := strings.TrimRight(filepath.Dir(path), "/")
+	pacls, err := c.getACLForPath(ctx, auth, parentPath)
+	if err != nil {
+		return nil, err
+	}
+
+	err = parsedACLs.Merge(pacls)
 	if err != nil {
 		return nil, err
 	}

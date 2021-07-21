@@ -109,6 +109,18 @@ func (m *ACLs) SetEntry(aclType string, qualifier string, permissions string) er
 	return nil
 }
 
+// Merge picks the given ACL and merges its entries into the current ones
+func (m *ACLs) Merge(in *ACLs) error {
+	for _, e := range in.Entries {
+		if e == nil {
+			return errInvalidACL
+		}
+		m.SetEntry(e.Type, e.Qualifier, e.Permissions)
+	}
+
+	return nil
+}
+
 // The Entry of an ACL is represented as three colon separated fields:
 type Entry struct {
 	// an ACL entry tag type: user, group, mask or other. comments start with #
