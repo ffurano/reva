@@ -42,7 +42,7 @@ import (
 	"github.com/cs3org/reva/pkg/storage/utils/acl"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
+
 	"google.golang.org/grpc"
 )
 
@@ -484,7 +484,7 @@ func (c *Client) GetFileInfoByInode(ctx context.Context, auth eosclient.Authoriz
 
 	log.Debug().Uint64("inode", inode).Str("rsp:", fmt.Sprintf("%#v", rsp)).Msg("grpc response")
 
-	info, err := c.grpcMDResponseToFileInfo(rsp, "")
+	info, err := c.grpcMDResponseToFileInfo(ctx, rsp, "")
 	if err != nil {
 		return nil, err
 	}
@@ -623,7 +623,7 @@ func (c *Client) GetFileInfoByPath(ctx context.Context, auth eosclient.Authoriza
 
 	log.Debug().Str("func", "GetFileInfoByPath").Str("path", path).Str("rsp:", fmt.Sprintf("%#v", rsp)).Msg("grpc response")
 
-	info, err := c.grpcMDResponseToFileInfo(rsp, filepath.Dir(path))
+	info, err := c.grpcMDResponseToFileInfo(ctx, rsp, filepath.Dir(path))
 	if err != nil {
 		return nil, err
 	}
@@ -1141,7 +1141,7 @@ func (c *Client) List(ctx context.Context, auth eosclient.Authorization, dpath s
 
 		log.Debug().Str("func", "List").Str("path", dpath).Str("item resp:", fmt.Sprintf("%#v", rsp)).Msg("grpc response")
 
-		myitem, err := c.grpcMDResponseToFileInfo(rsp, dpath)
+		myitem, err := c.grpcMDResponseToFileInfo(ctx, rsp, dpath)
 		if err != nil {
 			log.Error().Err(err).Str("func", "List").Str("path", dpath).Str("could not convert item:", fmt.Sprintf("%#v", rsp)).Str("err", err.Error()).Msg("")
 
@@ -1454,10 +1454,13 @@ func getFileFromVersionFolder(p string) string {
 	return path.Join(path.Dir(p), strings.TrimPrefix(path.Base(p), versionPrefix))
 }
 
-func (c *Client) grpcMDResponseToFileInfo(st *erpc.MDResponse, namepfx string) (*eosclient.FileInfo, error) {
+func (c *Client) grpcMDResponseToFileInfo(ctx context.Context, st *erpc.MDResponse, namepfx string) (*eosclient.FileInfo, error) {
 	if st.Cmd == nil && st.Fmd == nil {
 		return nil, errors.Wrap(errtypes.NotSupported(""), "Invalid response (st.Cmd and st.Fmd are nil)")
 	}
+
+	log := appctx.GetLogger(ctx)
+
 	fi := new(eosclient.FileInfo)
 
 	if st.Type != 0 {
