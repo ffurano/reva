@@ -2,7 +2,7 @@ module github.com/cs3org/reva
 
 require (
 	bou.ke/monkey v1.0.2
-	contrib.go.opencensus.io/exporter/jaeger v0.2.1
+	cloud.google.com/go v0.56.0 // indirect
 	contrib.go.opencensus.io/exporter/prometheus v0.3.0
 	github.com/BurntSushi/toml v0.4.1
 	github.com/Masterminds/goutils v1.1.0 // indirect
@@ -20,7 +20,7 @@ require (
 	github.com/cs3org/go-cs3apis v0.0.0-20210802070913-970eec344e59
 	github.com/eventials/go-tus v0.0.0-20200718001131-45c7ec8f5d59
 	github.com/gdexlab/go-render v1.0.1
-	github.com/go-ldap/ldap/v3 v3.3.0
+	github.com/go-ldap/ldap/v3 v3.4.1
 	github.com/go-openapi/errors v0.20.0 // indirect
 	github.com/go-openapi/strfmt v0.19.5 // indirect
 	github.com/go-sql-driver/mysql v1.6.0
@@ -61,7 +61,6 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.22.0
 	go.opentelemetry.io/otel v1.0.0-RC2
 	go.opentelemetry.io/otel/exporters/jaeger v1.0.0-RC2
-	go.opentelemetry.io/otel/metric v0.20.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.0.0-RC2
 	go.opentelemetry.io/otel/trace v1.0.0-RC2
 	golang.org/x/crypto v0.0.0-20201216223049-8b5274cf687f
